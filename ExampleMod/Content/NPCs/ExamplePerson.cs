@@ -1,0 +1,545 @@
+using ExampleMod.Common;
+using ExampleMod.Common.Configs;
+using ExampleMod.Common.Systems;
+using ExampleMod.Content.Biomes;
+using ExampleMod.Content.Dusts;
+using ExampleMod.Content.EmoteBubbles;
+using ExampleMod.Content.Items;
+using ExampleMod.Content.Items.Accessories;
+using ExampleMod.Content.Items.Armor;
+using ExampleMod.Content.Projectiles;
+using ExampleMod.Content.Tiles;
+using ExampleMod.Content.Tiles.Furniture;
+using ExampleMod.Content.Walls;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Terraria;
+using Terraria.Audio;
+using Terraria.DataStructures;
+using Terraria.GameContent;
+using Terraria.GameContent.Bestiary;
+using Terraria.GameContent.ItemDropRules;
+using Terraria.GameContent.Personalities;
+using Terraria.GameContent.UI;
+using Terraria.ID;
+using Terraria.Localization;
+using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
+using Terraria.Utilities;
+
+namespace ExampleMod.Content.NPCs
+{
+	// [AutoloadHead] and NPC.townNPC are extremely important and absolutely both necessary for any Town NPC to work at all.
+	[AutoloadHead]
+	public class ExamplePerson : ModNPC
+	{
+		public const string ShopName = "Shop";
+		public const string DayOnlyShopName = "DayOnlyShop";
+		public int NumberOfTimesTalkedTo = 0;
+
+		private static int ShimmerHeadIndex;
+		private static Profiles.StackedNPCProfile NPCProfile;
+
+		public static LocalizedText UpgradeItemButtonText { get; private set; }
+		public static LocalizedText UpgradeItemResponseText { get; private set; }
+		public static LocalizedText AwesomeifyButtonText { get; private set; }
+		public static LocalizedText AwesomeifyResponseText { get; private set; }
+		public static LocalizedText DayOnlyShopButtonText { get; private set; }
+
+		// Sets a unique message when the NPC dies.
+		// See also NPCID.Sets.IsTownChild if you just want the message used by Angler and Princess.
+		// See ModifyDeathMessage() way below for more details
+		public override LocalizedText DeathMessage => this.GetLocalization("DeathMessage");
+
+		public override void Load() {
+			// Adds our Shimmer Head to the NPCHeadLoader.
+			ShimmerHeadIndex = Mod.AddNPCHeadTexture(Type, Texture + "_Shimmer_Head");
+		}
+
+		public override void SetStaticDefaults() {
+			Main.npcFrameCount[Type] = 25; // The total amount of frames the NPC has
+
+			NPCID.Sets.ExtraFramesCount[Type] = 9; // Generally for Town NPCs, but this is how the NPC does extra things such as sitting in a chair and talking to other NPCs. This is the remaining frames after the walking frames.
+			NPCID.Sets.AttackFrameCount[Type] = 4; // The amount of frames in the attacking animation.
+			NPCID.Sets.DangerDetectRange[Type] = 700; // The amount of pixels away from the center of the NPC that it tries to attack enemies.
+			NPCID.Sets.AttackType[Type] = 0; // The type of attack the Town NPC performs. 0 = throwing, 1 = shooting, 2 = magic, 3 = melee
+			NPCID.Sets.AttackTime[Type] = 90; // The amount of time it takes for the NPC's attack animation to be over once it starts.
+			NPCID.Sets.AttackAverageChance[Type] = 30; // The denominator for the chance for a Town NPC to attack. Lower numbers make the Town NPC appear more aggressive.
+			NPCID.Sets.HatOffsetY[Type] = 4; // For when a party is active, the party hat spawns at a Y offset.
+			NPCID.Sets.ShimmerTownTransform[Type] = true; // This set says that the Town NPC has a Shimmered form. Otherwise, the Town NPC will become transparent when touching Shimmer like other enemies.
+
+			// Connects this NPC with a custom emote.
+			// This makes it when the NPC is in the world, other NPCs will "talk about him".
+			// By setting this you don't have to override the PickEmote method for the emote to appear.
+			NPCID.Sets.FaceEmote[Type] = ModContent.EmoteBubbleType<ExamplePersonEmote>();
+
+			// Influences how the NPC looks in the Bestiary
+			NPCID.Sets.NPCBestiaryDrawModifiers drawModifiers = new NPCID.Sets.NPCBestiaryDrawModifiers() {
+				Velocity = 1f, // Draws the NPC in the bestiary as if its walking +1 tiles in the x direction
+				Direction = 1 // -1 is left and 1 is right. NPCs are drawn facing the left by default but ExamplePerson will be drawn facing the right
+				// Rotation = MathHelper.ToRadians(180) // You can also change the rotation of an NPC. Rotation is measured in radians
+				// If you want to see an example of manually modifying these when the NPC is drawn, see PreDraw
+			};
+
+			NPCID.Sets.NPCBestiaryDrawOffset.Add(Type, drawModifiers);
+
+			// Set Example Person's biome and neighbor preferences with the NPCHappiness hook. You can add happiness text and remarks with localization (See an example in ExampleMod/Localization/en-US.hjson).
+			// NOTE: The following code uses chaining - a style that works due to the fact that the SetXAffection methods return the same NPCHappiness instance they're called on.
+			NPC.Happiness
+				.SetBiomeAffection<ExampleSurfaceBiome>(AffectionLevel.Love) // Example Person likes the Example Surface Biome
+				.SetBiomeAffection<ForestBiome>(AffectionLevel.Like) // Example Person prefers the forest.
+				.SetBiomeAffection<SnowBiome>(AffectionLevel.Dislike) // Example Person dislikes the snow.
+				.SetBiomeAffection<DesertBiome>(AffectionLevel.Dislike) // Example Person dislikes the desert.
+				// Town NPCs automatically hate the Corruption, Crimson, and Dungeon.
+				.SetNPCAffection(NPCID.Dryad, AffectionLevel.Love) // Loves living near the dryad.
+				.SetNPCAffection(NPCID.Guide, AffectionLevel.Like) // Likes living near the guide.
+				.SetNPCAffection(NPCID.BestiaryGirl, AffectionLevel.Like) // Likes living near the zoologist.
+				.SetNPCAffection(NPCID.Merchant, AffectionLevel.Dislike) // Dislikes living near the merchant.
+				.SetNPCAffection(NPCID.Golfer, AffectionLevel.Dislike) // Dislikes living near the golfer.
+				.SetNPCAffection(NPCID.Demolitionist, AffectionLevel.Hate) // Hates living near the demolitionist.
+			; // < Mind the semicolon!
+
+			// This creates a "profile" for ExamplePerson, which allows for different textures during a party and/or while the NPC is shimmered.
+			NPCProfile = new Profiles.StackedNPCProfile(
+				new Profiles.DefaultNPCProfile(Texture, NPCHeadLoader.GetHeadSlot(HeadTexture), Texture + "_Party"),
+				new Profiles.DefaultNPCProfile(Texture + "_Shimmer", ShimmerHeadIndex, Texture + "_Shimmer_Party")
+			);
+
+			// Here we define which portrait to use for the Town NPC when the portrait style setting is set to detailed.
+			NPCID.Sets.NPCPortraits.Add(Type, NPCID.Sets.PrioritizedPortrait()
+				.With(NPCID.Sets.ShimmeredPortraitCondition, NPCID.Sets.BasicPortrait($"{Texture}_Shimmer_Portrait")) // This is the portrait to use while the Town NPC is shimmered.
+				.Default(NPCID.Sets.BasicPortrait($"{Texture}_Portrait"))); // Default portrait to use (not shimmered).
+			NPCID.Sets.NPCPortraitsCloseUpOffsets.Add(Type, new Vector2(-3f, 0f)); // Here we can change the offsets of Town NPC when the portrait style setting is set to profile.
+			//NPCID.Sets.NPCPortraitsFullBodyRetroOffsets.Add(Type, new Vector2(0f, 0f)); // Here we can change the offsets of Town NPC when the portrait style setting is set to retro.
+
+			ContentSamples.NpcBestiaryRarityStars[Type] = 3; // We can override the default bestiary star count calculation by setting this.
+
+			UpgradeItemButtonText = this.GetLocalization("Interactions.UpgradeItemButton");
+			UpgradeItemResponseText = this.GetLocalization("Interactions.UpgradeItemResponse");
+			AwesomeifyButtonText = this.GetLocalization("Interactions.AwesomeifyButton");
+			AwesomeifyResponseText = this.GetLocalization("Interactions.AwesomeifyResponse");
+			DayOnlyShopButtonText = this.GetLocalization("Interactions.DayOnlyShopButton");
+		}
+
+		public override void SetDefaults() {
+			NPC.townNPC = true; // Sets NPC to be a Town NPC
+			NPC.friendly = true; // NPC Will not attack player
+			NPC.width = 18;
+			NPC.height = 40;
+			NPC.aiStyle = NPCAIStyleID.Passive;
+			NPC.damage = 10;
+			NPC.defense = 15;
+			NPC.lifeMax = 250;
+			NPC.HitSound = SoundID.NPCHit1;
+			NPC.DeathSound = SoundID.NPCDeath1;
+			NPC.knockBackResist = 0.5f;
+
+			AnimationType = NPCID.Guide;
+		}
+
+		public override void SetBestiary(BestiaryDatabase database, BestiaryEntry bestiaryEntry) {
+			// We can use AddRange instead of calling Add multiple times in order to add multiple items at once
+			bestiaryEntry.Info.AddRange([
+				// Sets the preferred biomes of this town NPC listed in the bestiary.
+				// With Town NPCs, you usually set this to what biome it likes the most in regards to NPC happiness.
+				BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes.Surface,
+
+				// Sets your NPC's flavor text in the bestiary. (use localization keys)
+				new FlavorTextBestiaryInfoElement("Mods.ExampleMod.Bestiary.ExamplePerson_1"),
+
+				// You can add multiple elements if you really wanted to
+				new FlavorTextBestiaryInfoElement("Mods.ExampleMod.Bestiary.ExamplePerson_2")
+			]);
+		}
+
+		// The PreDraw hook is useful for drawing things before our sprite is drawn or running code before the sprite is drawn
+		// Returning false will allow you to manually draw your NPC
+		public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
+			// This code slowly rotates the NPC in the bestiary
+			// (simply checking NPC.IsABestiaryIconDummy and incrementing NPC.Rotation won't work here as it gets overridden by drawModifiers.Rotation each tick)
+			if (NPCID.Sets.NPCBestiaryDrawOffset.TryGetValue(Type, out NPCID.Sets.NPCBestiaryDrawModifiers drawModifiers)) {
+				drawModifiers.Rotation += 0.001f;
+
+				// Replace the existing NPCBestiaryDrawModifiers with our new one with an adjusted rotation
+				NPCID.Sets.NPCBestiaryDrawOffset.Remove(Type);
+				NPCID.Sets.NPCBestiaryDrawOffset.Add(Type, drawModifiers);
+			}
+
+			return true;
+		}
+
+		public override void HitEffect(NPC.HitInfo hit) {
+			int num = NPC.life > 0 ? 1 : 5;
+
+			for (int k = 0; k < num; k++) {
+				Dust.NewDust(NPC.position, NPC.width, NPC.height, ModContent.DustType<Sparkle>());
+			}
+
+			// Create gore when the NPC is killed.
+			if (Main.netMode != NetmodeID.Server && NPC.life <= 0) {
+				// Retrieve the gore types. This NPC has shimmer and party variants for head, arm, and leg gore. (12 total gores)
+				string variant = "";
+				if (NPC.IsShimmerVariant)
+					variant += "_Shimmer";
+				if (NPC.altTexture == 1)
+					variant += "_Party";
+				int hatGore = NPC.GetPartyHatGore();
+				int headGore = Mod.Find<ModGore>($"{Name}_Gore{variant}_Head").Type;
+				int armGore = Mod.Find<ModGore>($"{Name}_Gore{variant}_Arm").Type;
+				int legGore = Mod.Find<ModGore>($"{Name}_Gore{variant}_Leg").Type;
+
+				// Spawn the gores. The positions of the arms and legs are lowered for a more natural look.
+				if (hatGore > 0) {
+					Gore.NewGore(NPC.GetSource_Death(), NPC.position, NPC.velocity, hatGore);
+				}
+				Gore.NewGore(NPC.GetSource_Death(), NPC.position, NPC.velocity, headGore, 1f);
+				Gore.NewGore(NPC.GetSource_Death(), NPC.position + new Vector2(0, 20), NPC.velocity, armGore);
+				Gore.NewGore(NPC.GetSource_Death(), NPC.position + new Vector2(0, 20), NPC.velocity, armGore);
+				Gore.NewGore(NPC.GetSource_Death(), NPC.position + new Vector2(0, 34), NPC.velocity, legGore);
+				Gore.NewGore(NPC.GetSource_Death(), NPC.position + new Vector2(0, 34), NPC.velocity, legGore);
+			}
+		}
+
+		public override void OnSpawn(IEntitySource source) {
+			if (source is EntitySource_SpawnNPC) {
+				// A TownNPC is "unlocked" once it successfully spawns into the world.
+				TownNPCRespawnSystem.unlockedExamplePersonSpawn = true;
+			}
+		}
+
+		public override bool CanTownNPCSpawn(int numTownNPCs) { // Requirements for the town NPC to spawn.
+			if (TownNPCRespawnSystem.unlockedExamplePersonSpawn) {
+				// If Example Person has spawned in this world before, we don't require the user satisfying the ExampleItem/ExampleBlock inventory conditions for a respawn.
+				return true;
+			}
+
+			foreach (var player in Main.ActivePlayers) {
+				// Player has to have either an ExampleItem or an ExampleBlock in order for the NPC to spawn
+				if (player.inventory.Any(item => item.type == ModContent.ItemType<ExampleItem>() || item.type == ModContent.ItemType<Items.Placeable.ExampleBlock>())) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		// Example Person needs a house built out of ExampleMod tiles. You can delete this whole method in your townNPC for the regular house conditions.
+		public override bool CheckConditions(int left, int right, int top, int bottom) {
+			int score = 0;
+			for (int x = left; x <= right; x++) {
+				for (int y = top; y <= bottom; y++) {
+					int type = Main.tile[x, y].TileType;
+					if (type == ModContent.TileType<ExampleBlock>() || type == ModContent.TileType<ExampleChair>() || type == ModContent.TileType<ExampleWorkbench>() || type == ModContent.TileType<ExampleBed>() || type == ModContent.TileType<ExampleDoorOpen>() || type == ModContent.TileType<ExampleDoorClosed>()) {
+						score++;
+					}
+
+					if (Main.tile[x, y].WallType == ModContent.WallType<ExampleWall>()) {
+						score++;
+					}
+				}
+			}
+
+			return score >= ((right - left) * (bottom - top)) / 2;
+		}
+
+		public override ITownNPCProfile TownNPCProfile() {
+			return NPCProfile;
+		}
+
+		public override List<string> SetNPCNameList() {
+			return new List<string>() {
+				"Someone",
+				"Somebody",
+				"Blocky",
+				"Colorless"
+			};
+		}
+
+		public override void FindFrame(int frameHeight) {
+			/*npc.frame.Width = 40;
+			if (((int)Main.time / 10) % 2 == 0)
+			{
+				npc.frame.X = 40;
+			}
+			else
+			{
+				npc.frame.X = 0;
+			}*/
+		}
+
+		public override string GetChat() {
+			// This method shows implementing chat selection with different weights (chance) and additional custom dynamic logic. If these are not required, the following is all that is needed for typical chat selection. This approach supports global substitutions (like "{?Day}" and "{PartyGirl}") so common conditional and substitution logic will be supported automatically.
+			// return Language.SelectRandom(Lang.CreateDialogFilter("Mods.ExampleMod.Dialogue.ExamplePerson")).Value;
+
+			WeightedRandom<LocalizedText> chat = new WeightedRandom<LocalizedText>();
+
+			// Find all the localization entries that start with the provided text and that also satisfy the "global substitutions" contained within.
+			LocalizedText[] dialogueOptions = Language.FindAll(Lang.CreateDialogFilter("Mods.ExampleMod.Dialogue.ExamplePerson", checkConditions: true));
+
+			NumberOfTimesTalkedTo++;
+
+			foreach (var dialogueOption in dialogueOptions) {
+				if (dialogueOption.Key == "Mods.ExampleMod.Dialogue.ExamplePerson.TalkALot" && NumberOfTimesTalkedTo < 10) {
+					// This counter is linked to a single instance of the NPC, so if ExamplePerson is killed, the counter will reset.
+					continue;
+				}
+
+				// Give each option a weight.
+				float weight = dialogueOption.Key.Split(".")[^1] switch {
+					"CommonDialogue" => 5f,
+					"RareDialogue" => 0.1f,
+					"PartyGirlDialogue" => 0.25f,
+					_ => 1f,
+				};
+
+				chat.Add(dialogueOption, weight);
+			}
+		
+			LocalizedText chosenChat = chat.Get(); // Now that all the chat options are added, select one at random.
+
+			// Here is some additional logic based on the chosen chat line. In this case, we want to display an item in the corner for StandardDialogue4.
+			if (chosenChat.Key == "Mods.ExampleMod.Dialogue.ExamplePerson.StandardDialogue4") {
+				// Main.npcChatCornerItem shows a single item in the corner, like the Angler Quest chat.
+				Main.npcChatCornerItem = ItemID.HiveBackpack;
+			}
+
+			return chosenChat.Value;
+		}
+
+		public override void RegisterChatButtons(NPCInteractionList interactions) {
+			// Here is how to register chat buttons to your NPC.
+			// There are many method that you can use to change the order of the buttons.
+			// interactions.Append(NPCInteraction interaction)	This will add the button to the end of the list (after the Happiness and Housing buttons, too).
+			// interactions.Prepend(NPCInteraction interaction)	This will add the button to the beginning of the list.
+			// interactions.InsertAfter(NPCInteraction interactionToRegister, NPCInteraction interactionAfter)		This will add the button after another specified button.
+			// interactions.InsertBefore(NPCInteraction interactionToRegister, NPCInteraction interactionBefore)	This will add the button before another specified button.
+
+			// In this example we are registering our Shop button to before the Close button.
+			// The Close button instance is provided for us for convenience.
+			interactions.InsertBefore(NPCInteractions.Shop(ShopName), NPCInteractionDatabase.CloseButton); // NPCInteractions.Shop() is a helper that creates a Shop button.
+
+			// Next, add the rest of our buttons before the Happiness button (which is before the Housing button).
+			interactions.InsertBefore(new AwesomeifyButton(), NPCInteractionDatabase.HappinessButton); // These are custom buttons that we've defined below.
+			interactions.InsertBefore(new UpgradeButton(), NPCInteractionDatabase.HappinessButton);
+			interactions.InsertBefore(new OpenShopOnlyAvailableDuringDay(DayOnlyShopName, DayOnlyShopButtonText.Key), NPCInteractionDatabase.HappinessButton);
+
+			// Don't want a close, happiness, or housing button? Just disable it!
+			// interactions.Disable(NPCInteractionDatabase.HousingButton);
+
+			// Showcase of other things you can do:
+			// NPCInteractionList.Entry awesomeifyButton = interactions.InsertBefore(new AwesomeifyButton(), NPCInteractionDatabase.HappinessButton); // Return the interaction instance
+			// interactions.InsertAfter(new OpenShopOnlyAvailableDuringDay(ShopName, DayOnlyShopButtonText.Key), awesomeifyButton); // Insert after the instance we saved above.
+			// interactions.Prepend(NPCInteractions.Shop(ShopName)); // Insert at the beginning
+			// interactions.Append(NPCInteractions.Shop(ShopName)); // Insert at the end (after the happiness and housing buttons, too)
+		}
+
+		// Here is simple example of a custom button that is labeled "Awesomeify".
+		public class AwesomeifyButton : NPCInteraction {
+			// This is the label of the button. This points to a localization key that translates to "Awesomeify".
+			public override string GetText() => AwesomeifyButtonText.Value;
+
+			// Here you can change when this button will show up.
+			// We want the button to always be shown, so we return true.
+			// Chat buttons are assigned per NPC, so we don't have to worry about specifying this button should only show for our NPC.
+			// (No need to do something like this: TalkNPCType == ModContent.NPCType<ExamplePerson>();)
+			public override bool Condition() => true;
+
+			// When the button is clicked, this will run.
+			public override void Interact() {
+				// We can set the text in the chat box by setting Main.npcChatText.
+				Main.npcChatText = AwesomeifyResponseText.Value;
+			}
+		}
+
+		// Here is another example of a custom button that only shows up if the player has a specific item in their inventory.
+		public class UpgradeButton : NPCInteraction {
+			public override string GetText() => UpgradeItemButtonText.Value;
+			public override bool Condition() => LocalPlayer.HasItem(ItemID.HiveBackpack);
+			public override void Interact() {
+				SoundEngine.PlaySound(SoundID.Item37); // Reforge/Anvil sound
+
+				Main.npcChatText = UpgradeItemResponseText.Value;
+
+				Main.DoNPCPortraitHop(); // Bounce the npc portrait
+
+				int hiveBackpackItemIndex = LocalPlayer.FindItem(ItemID.HiveBackpack); // Find the location of the item in the player's inventory.
+				var entitySource = TalkNPC.GetSource_GiftOrReward();
+
+				int stack = LocalPlayer.inventory[hiveBackpackItemIndex].stack; // Remember how many items were in the stack.
+				LocalPlayer.inventory[hiveBackpackItemIndex].TurnToAir(); // Delete the original item.
+				LocalPlayer.QuickSpawnItem(entitySource, ModContent.ItemType<WaspNest>(), stack); // Spawn in the new item with the same stack size.
+
+				// Alternate approach that only consumes one item and gives one item.
+				// LocalPlayer.ConsumeItem(ItemID.HiveBackpack);
+				// LocalPlayer.QuickSpawnItem(entitySource, ModContent.ItemType<WaspNest>());
+			}
+			public override bool ShowExclamation => true; // This will show a little exclamation point next to the button.
+		}
+
+		// Here is an example of inheriting an existing NPCInteraction and modifying the condition.
+		public class OpenShopOnlyAvailableDuringDay(string shopName, string customTextKey) : NPCInteractions.Actions.OpenShop(shopName, customTextKey) {
+			public override bool Condition() {
+				// base.Condition() will run the base class' condition, so we don't have to copy that ourselves.
+				// Then we also add && Main.dayTime to make this button only show up during the day time.
+				return base.Condition() && Main.dayTime;
+			}
+		}
+
+		// With OnChatButtonClicked, we can do additional things when any chat button is clicked. The interaction is the type of button that was clicked. This is most useful for adding additional logic to existing buttons.
+		public override void OnChatButtonClicked(NPCInteraction interaction) {
+			if (interaction is AwesomeifyButton) {
+				// OnChatButtonClicked only runs for the local player who clicked the button. Any multiplayer functionality will need to be synced with a packet.
+				Main.NewText($"{interaction.LocalPlayer.name} clicked on the Awesomeify button!");
+			}
+		}
+
+		// Not completely finished, but below is what the NPC will sell
+		public override void AddShops() {
+			var npcShop = new NPCShop(Type, ShopName)
+				.Add<ExampleItem>()
+				//.Add<EquipMaterial>()
+				//.Add<BossItem>()
+				.Add(new Item(ModContent.ItemType<Items.Placeable.Furniture.ExampleWorkbench>()) { shopCustomPrice = Item.buyPrice(copper: 15) }) // This example sets a custom price, ExampleNPCShop.cs has more info on custom prices and currency.
+				.Add<Items.Placeable.Furniture.ExampleChair>()
+				.Add<Items.Placeable.Furniture.ExampleDoor>()
+				.Add<Items.Placeable.Furniture.ExampleBed>()
+				.Add<Items.Placeable.Furniture.ExampleChest>()
+				.Add<Items.Tools.ExamplePickaxe>()
+				.Add<Items.Tools.ExampleHamaxe>()
+				.Add<Items.Consumables.ExampleHealingPotion>(new Condition("Mods.ExampleMod.Conditions.PlayerHasLifeforceBuff", () => Main.LocalPlayer.HasBuff(BuffID.Lifeforce)))
+				.Add<Items.Weapons.ExampleSword>(Condition.MoonPhasesQuarter0)
+				//.Add<ExampleGun>(Condition.MoonPhasesQuarter1)
+				.Add<Items.Ammo.ExampleBullet>(Condition.MoonPhasesQuarter1)
+				.Add<Items.Weapons.ExampleStaff>(ExampleConditions.DownedMinionBoss)
+				.Add<ExampleOnBuyItem>()
+				.Add(ItemID.AcornAxe) // Here is an example of how to sell an existing vanilla item.
+				.Add<Items.Weapons.ExampleYoyo>(Condition.IsNpcShimmered); // Let's sell an yoyo if this NPC is shimmered!
+
+			if (ModContent.GetInstance<ExampleModConfig>().ExampleWingsToggle) {
+				npcShop.Add<ExampleWings>(ExampleConditions.InExampleBiome);
+			}
+			npcShop.Add<ExampleCustomDrawWings>(ExampleConditions.InExampleBiome);
+
+			if (ModContent.TryFind("SummonersAssociation/BloodTalisman", out ModItem bloodTalisman)) {
+				npcShop.Add(bloodTalisman.Type);
+			}
+			npcShop.Register(); // Name of this shop tab
+
+			// This is the 2nd shop, accessible only during the day. NPC can have multiple shops, but usually the main shop has the default name of "Shop" as seen above.
+			var dayOnlyShop = new NPCShop(Type, DayOnlyShopName)
+				.Add(ItemID.Sunglasses)
+				.Add(ItemID.AviatorSunglasses)
+				.Add(ItemID.HiTekSunglasses);
+			dayOnlyShop.Register();
+		}
+
+		public override void ModifyActiveShop(string shopName, Item[] items) {
+			foreach (Item item in items) {
+				// Skip 'air' items and null items.
+				if (item == null || item.type == ItemID.None) {
+					continue;
+				}
+
+				// If NPC is shimmered then reduce all prices by 50%.
+				if (NPC.IsShimmerVariant) {
+					int value = item.shopCustomPrice ?? item.value;
+					item.shopCustomPrice = value / 2;
+				}
+			}
+		}
+
+		public override void ModifyNPCLoot(NPCLoot npcLoot) {
+			npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<ExampleCostume>()));
+		}
+
+		// Make this Town NPC teleport to the King and/or Queen statue when triggered. Return toKingStatue for only King Statues. Return !toKingStatue for only Queen Statues. Return true for both.
+		public override bool CanGoToStatue(bool toKingStatue) => true;
+
+		// Make something happen when the npc teleports to a statue. Since this method only runs server side, any visual effects like dusts or gores have to be synced across all clients manually.
+		public override void OnGoToStatue(bool toKingStatue) {
+			if (Main.netMode == NetmodeID.Server) {
+				ModPacket packet = Mod.GetPacket();
+				packet.Write((byte)ExampleMod.MessageType.ExampleTeleportToStatue);
+				packet.Write((byte)NPC.whoAmI);
+				packet.Send();
+			}
+			else {
+				StatueTeleport();
+			}
+		}
+
+		// Create a square of pixels around the NPC on teleport.
+		public void StatueTeleport() {
+			for (int i = 0; i < 30; i++) {
+				Vector2 position = Main.rand.NextVector2Square(-20, 21);
+				if (Math.Abs(position.X) > Math.Abs(position.Y)) {
+					position.X = Math.Sign(position.X) * 20;
+				}
+				else {
+					position.Y = Math.Sign(position.Y) * 20;
+				}
+
+				Dust.NewDustPerfect(NPC.Center + position, ModContent.DustType<Sparkle>(), Vector2.Zero).noGravity = true;
+			}
+		}
+
+		public override bool ModifyDeathMessage(ref NetworkText customText, ref Color color) {
+			// This example shows how you would further customize the message, in this case just for the shimmer variant.
+			if (NPC.IsShimmerVariant) {
+				customText = NetworkText.FromKey(this.GetLocalizationKey("DeathMessageAlt"), NPC.GetFullNetName());
+				color = Color.Yellow;
+			}
+			return true;
+		}
+
+		public override void TownNPCAttackStrength(ref int damage, ref float knockback) {
+			damage = 20;
+			knockback = 4f;
+		}
+
+		public override void TownNPCAttackCooldown(ref int cooldown, ref int randExtraCooldown) {
+			cooldown = 30;
+			randExtraCooldown = 30;
+		}
+
+		public override void TownNPCAttackProj(ref int projType, ref int attackDelay) {
+			projType = ModContent.ProjectileType<SparklingBall>();
+			attackDelay = 1;
+		}
+
+		public override void TownNPCAttackProjSpeed(ref float multiplier, ref float gravityCorrection, ref float randomOffset) {
+			multiplier = 12f;
+			randomOffset = 2f;
+			// SparklingBall is not affected by gravity, so gravityCorrection is left alone.
+		}
+
+		public override void LoadData(TagCompound tag) {
+			NumberOfTimesTalkedTo = tag.GetInt("numberOfTimesTalkedTo");
+		}
+
+		public override void SaveData(TagCompound tag) {
+			tag["numberOfTimesTalkedTo"] = NumberOfTimesTalkedTo;
+		}
+
+		// Let the NPC "talk about" minion boss
+		public override int? PickEmote(Player closestPlayer, List<int> emoteList, WorldUIAnchor otherAnchor) {
+			// By default this NPC will have a chance to use the Minion Boss Emote even if Minion Boss is not downed yet
+			int type = ModContent.EmoteBubbleType<MinionBossEmote>();
+			// If the NPC is talking to the Demolitionist, it will be more likely to react with angry emote
+			if (otherAnchor.entity is NPC { type: NPCID.Demolitionist }) {
+				type = EmoteID.EmotionAnger;
+			}
+
+			// Make the selection more likely by adding it to the list multiple times
+			for (int i = 0; i < 4; i++) {
+				emoteList.Add(type);
+			}
+
+			// Use this or return null if you don't want to override the emote selection totally
+			return base.PickEmote(closestPlayer, emoteList, otherAnchor);
+		}
+	}
+}

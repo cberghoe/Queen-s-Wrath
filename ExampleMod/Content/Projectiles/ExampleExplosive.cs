@@ -1,0 +1,230 @@
+using Microsoft.Xna.Framework;
+using System;
+using Terraria;
+using Terraria.Audio;
+using Terraria.ID;
+using Terraria.ModLoader;
+
+namespace ExampleMod.Content.Projectiles
+{
+	// This projectile demonstrates exploding tiles (like a bomb or dynamite), spawning child projectiles, and explosive visual effects.
+	public class ExampleExplosive : ModProjectile
+	{
+		private const int DefaultWidthHeight = 15;
+		private const int ExplosionWidthHeight = 250;
+
+		private bool IsChild {
+			get => Projectile.localAI[0] == 1;
+			set => Projectile.localAI[0] = value.ToInt();
+		}
+
+		// Explosives set ai[0] to 1000 to indicated that the item is being despawned via right click
+		// (see the ProjectileID.Sets.DespawnItemIcon and ProjectileID.Sets.Explosive documentation)
+		private bool BeingPickedUp {
+			get => Projectile.ai[0] == 1000;
+			set => Projectile.ai[0] = value ? 1000 : 0;
+		}
+
+		public override void SetStaticDefaults() {
+			// This set handles some things for us already:
+			// Sets the timeLeft to 3 and the projectile direction when colliding with an NPC or player in PVP (so the explosive can detonate).
+			// Explosives also bounce off the top of Shimmer, detonate with no blast damage when touching the bottom or sides of Shimmer, and deal unscaled damage to players via SelfHurtPlayers when killed.
+			// Killing the projectile runs the explosion: PrepareBombToBlow, then damage to nearby NPCs and to the owner.
+			ProjectileID.Sets.Explosive[Type] = true;
+
+			// These sets support retrieving the projectile back as an item by right clicking on it in the world.
+			ProjectileID.Sets.DespawnItemIcon[Type] = ModContent.ItemType<Items.Weapons.ExampleExplosive>();
+			ProjectileID.Sets.DespawnItemGivesItemBack[Type] = true;
+		}
+
+		public override void SetDefaults() {
+			// While the sprite is actually bigger than 15x15, we use 15x15 since it lets the projectile clip into tiles as it bounces. It looks better.
+			Projectile.width = DefaultWidthHeight;
+			Projectile.height = DefaultWidthHeight;
+			Projectile.friendly = true;
+			Projectile.penetrate = -1;
+
+			// 5 second fuse.
+			Projectile.timeLeft = 300;
+
+			// These help the projectile hitbox be centered on the projectile sprite.
+			DrawOffsetX = -2;
+			DrawOriginOffsetY = -5;
+		}
+
+		public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers) {
+			// Vanilla explosions do less damage to Eater of Worlds in expert mode, so we will too.
+			if (Main.expertMode) {
+				if (target.type >= NPCID.EaterofWorldsHead && target.type <= NPCID.EaterofWorldsTail) {
+					modifiers.FinalDamage /= 5;
+				}
+			}
+		}
+
+		// The projectile is very bouncy, but the spawned children projectiles shouldn't bounce at all.
+		public override bool OnTileCollide(Vector2 oldVelocity) {
+			// Die immediately if IsChild is true (We set this to true for the 5 extra explosives we spawn in OnKill)
+			if (IsChild) {
+				Projectile.Kill(); // Detonate
+				return false;
+			}
+
+			// OnTileCollide can trigger quite frequently, so using soundDelay helps prevent the sound from overlapping too much.
+			if (Projectile.soundDelay == 0) {
+				// We adjust Volume since the sound is a bit too loud. PitchVariance gives the sound some random pitch variance.
+				SoundStyle impactSound = new SoundStyle($"{nameof(ExampleMod)}/Assets/Sounds/Items/BananaImpact") {
+					Volume = 0.7f,
+					PitchVariance = 0.5f,
+				};
+				SoundEngine.PlaySound(impactSound);
+			}
+			Projectile.soundDelay = 10;
+
+			// This code makes the projectile very bouncy.
+			if (Projectile.velocity.X != oldVelocity.X && Math.Abs(oldVelocity.X) > 1f) {
+				Projectile.velocity.X = oldVelocity.X * -0.9f;
+			}
+			if (Projectile.velocity.Y != oldVelocity.Y && Math.Abs(oldVelocity.Y) > 1f) {
+				Projectile.velocity.Y = oldVelocity.Y * -0.9f;
+			}
+			return false;
+		}
+
+		public override void AI() {
+			// Other clients wait for the owner's kill message, so the explosion happens at the same time in the same place for everyone.
+			if (Projectile.owner != Main.myPlayer && Projectile.timeLeft < 5) {
+				Projectile.timeLeft = 5;
+			}
+
+			if (Projectile.owner == Main.myPlayer && Projectile.timeLeft <= 3) {
+				Projectile.Kill(); // Detonate
+				return;
+			}
+
+			// Smoke and fuse dust spawn. The position is calculated to spawn the dust directly on the fuse.
+			if (Main.rand.NextBool()) {
+				Dust dust = Dust.NewDustDirect(Projectile.position, Projectile.width, Projectile.height, DustID.Smoke, 0f, 0f, 100, default, 1f);
+				dust.scale = 0.1f + Main.rand.Next(5) * 0.1f;
+				dust.fadeIn = 1.5f + Main.rand.Next(5) * 0.1f;
+				dust.noGravity = true;
+				dust.position = Projectile.Center + new Vector2(1, 0).RotatedBy(Projectile.rotation - 2.1f, default) * 10f;
+
+				dust = Dust.NewDustDirect(Projectile.position, Projectile.width, Projectile.height, DustID.Torch, 0f, 0f, 100, default, 1f);
+				dust.scale = 1f + Main.rand.Next(5) * 0.1f;
+				dust.noGravity = true;
+				dust.position = Projectile.Center + new Vector2(1, 0).RotatedBy(Projectile.rotation - 2.1f, default) * 10f;
+			}
+			Projectile.ai[1] += 1f;
+			if (Projectile.ai[1] > 10f) {
+				Projectile.ai[1] = 10f;
+				// Roll speed dampening.
+				if (Projectile.velocity.Y == 0f && Projectile.velocity.X != 0f) {
+					Projectile.velocity.X = Projectile.velocity.X * 0.96f;
+
+					if (Projectile.velocity.X > -0.01 && Projectile.velocity.X < 0.01) {
+						Projectile.velocity.X = 0f;
+						Projectile.netUpdate = true;
+					}
+				}
+				// Delayed gravity
+				Projectile.velocity.Y = Projectile.velocity.Y + 0.2f;
+			}
+			// Rotation increased by velocity.X
+			Projectile.rotation += Projectile.velocity.X * 0.1f;
+		}
+
+		public override void PrepareBombToBlow() {
+			// Change the hitbox size, centered about the original projectile center. This makes the projectile damage enemies during the explosion.
+			Projectile.Resize(ExplosionWidthHeight, ExplosionWidthHeight);
+
+			Projectile.damage = 250; // Bomb: 100, Dynamite: 250
+			Projectile.knockBack = 10f; // Bomb: 8f, Dynamite: 10f
+		}
+
+		public override void OnKill(int timeLeft) {
+			// If we are being picked up via right click, don't explode at all.
+			if (BeingPickedUp) {
+				return;
+			}
+
+			// If we are the original projectile running on the owner, spawn the 5 child projectiles.
+			if (Projectile.owner == Main.myPlayer && !IsChild) {
+				for (int i = 0; i < 5; i++) {
+					// Random upward vector.
+					Vector2 launchVelocity = new Vector2(Main.rand.NextFloat(-3, 3), Main.rand.NextFloat(-10, -8));
+					// Importantly, IsChild is set to true here. This is checked in OnTileCollide to prevent bouncing and here in OnKill to prevent an infinite chain of splitting projectiles.
+					Projectile child = Projectile.NewProjectileDirect(Projectile.GetSource_FromThis(), Projectile.Center, launchVelocity, Projectile.type, Projectile.damage, Projectile.knockBack, Main.myPlayer, 0, 1);
+					(child.ModProjectile as ExampleExplosive).IsChild = true;
+					// Usually editing a projectile after NewProjectile would require sending MessageID.SyncProjectile, but IsChild only affects logic running for the owner so it is not necessary here.
+				}
+			}
+
+			// Play explosion sound
+			SoundEngine.PlaySound(SoundID.Item14, Projectile.position);
+			// Smoke Dust spawn
+			for (int i = 0; i < 50; i++) {
+				Dust dust = Dust.NewDustDirect(Projectile.position, Projectile.width, Projectile.height, DustID.Smoke, 0f, 0f, 100, default, 2f);
+				dust.velocity *= 1.4f;
+			}
+
+			// Fire Dust spawn
+			for (int i = 0; i < 80; i++) {
+				Dust dust = Dust.NewDustDirect(Projectile.position, Projectile.width, Projectile.height, DustID.Torch, 0f, 0f, 100, default, 3f);
+				dust.noGravity = true;
+				dust.velocity *= 5f;
+				dust = Dust.NewDustDirect(Projectile.position, Projectile.width, Projectile.height, DustID.Torch, 0f, 0f, 100, default, 2f);
+				dust.velocity *= 3f;
+			}
+
+			// Large Smoke Gore spawn
+			for (int g = 0; g < 2; g++) {
+				var goreSpawnPosition = new Vector2(Projectile.position.X + Projectile.width / 2 - 24f, Projectile.position.Y + Projectile.height / 2 - 24f);
+				Gore gore = Gore.NewGoreDirect(Projectile.GetSource_FromThis(), goreSpawnPosition, default, Main.rand.Next(61, 64), 1f);
+				gore.scale = 1.5f;
+				gore.velocity.X += 1.5f;
+				gore.velocity.Y += 1.5f;
+				gore = Gore.NewGoreDirect(Projectile.GetSource_FromThis(), goreSpawnPosition, default, Main.rand.Next(61, 64), 1f);
+				gore.scale = 1.5f;
+				gore.velocity.X -= 1.5f;
+				gore.velocity.Y += 1.5f;
+				gore = Gore.NewGoreDirect(Projectile.GetSource_FromThis(), goreSpawnPosition, default, Main.rand.Next(61, 64), 1f);
+				gore.scale = 1.5f;
+				gore.velocity.X += 1.5f;
+				gore.velocity.Y -= 1.5f;
+				gore = Gore.NewGoreDirect(Projectile.GetSource_FromThis(), goreSpawnPosition, default, Main.rand.Next(61, 64), 1f);
+				gore.scale = 1.5f;
+				gore.velocity.X -= 1.5f;
+				gore.velocity.Y -= 1.5f;
+			}
+			// reset size to normal width and height.
+			Projectile.Resize(DefaultWidthHeight, DefaultWidthHeight);
+
+			// Finally, actually explode the tiles and walls. Run this code only for the owner
+			if (Projectile.owner == Main.myPlayer) {
+				int explosionRadius = 7; // Bomb: 4, Dynamite: 7, Explosives & TNT Barrel: 10
+				int minTileX = (int)(Projectile.Center.X / 16f - explosionRadius);
+				int maxTileX = (int)(Projectile.Center.X / 16f + explosionRadius);
+				int minTileY = (int)(Projectile.Center.Y / 16f - explosionRadius);
+				int maxTileY = (int)(Projectile.Center.Y / 16f + explosionRadius);
+
+				// Ensure that all tile coordinates are within the world bounds
+				Utils.ClampWithinWorld(ref minTileX, ref minTileY, ref maxTileX, ref maxTileY);
+
+				// These 2 methods handle actually mining the tiles and walls while honoring tile explosion conditions
+				bool explodeWalls = Projectile.ShouldWallExplode(Projectile.Center, explosionRadius, minTileX, maxTileX, minTileY, maxTileY);
+				Projectile.ExplodeTiles(Projectile.Center, explosionRadius, minTileX, maxTileX, minTileY, maxTileY, explodeWalls);
+			}
+		}
+
+		public override bool PreTryDespawning(ref bool giveItem) {
+			if (IsChild) {
+				giveItem = false;
+			}
+
+			// This is already set by ProjectileID.Sets.Explosive, but for other projectiles we would need to set a similar flag to prevent certain logic in OnKill from running when the projectile is being despawned via right click.
+			//BeingPickedUp = true;
+
+			return true;
+		}
+	}
+}
