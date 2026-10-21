@@ -1,0 +1,3 @@
+displayName = Queen&#39;s Wrath
+author = Ceiling Skeleton
+version = 0.1
