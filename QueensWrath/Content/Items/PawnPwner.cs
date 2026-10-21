@@ -2,29 +2,38 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace QueensWrath.Content.Items
+namespace TestMod.Content.Items.Weapons
 {
 	// This is a basic item template.
 	// Please see tModLoader's ExampleMod for every other example:
 	// https://github.com/tModLoader/tModLoader/tree/stable/ExampleMod
-	public class PawnPwner : ModItem
+	public class TestSword : ModItem
 	{
-		// The Display Name and Tooltip of this item can be edited in the 'Localization/en-US_Mods.QueensWrath.hjson' file.
+		// The Display Name and Tooltip of this item can be edited in the 'Localization/en-US_Mods.TestMod.hjson' file.
 		public override void SetDefaults()
 		{
-			Item.damage = 50;
-			Item.DamageType = DamageClass.Melee;
-			Item.width = 40;
-			Item.height = 40;
-			Item.useTime = 20;
-			Item.useAnimation = 20;
+			Item.damage = 15;
+			Item.DamageType = DamageClass.MeleeNoSpeed;
+			Item.width = 20;
+			Item.height = 80;
+			Item.useTime = 24;
+			Item.useAnimation = 24;
 			Item.useStyle = ItemUseStyleID.Swing;
-			Item.knockBack = 6;
+			Item.knockBack = 25;
 			Item.value = Item.buyPrice(silver: 1);
 			Item.rare = ItemRarityID.Blue;
 			Item.UseSound = SoundID.Item1;
 			Item.autoReuse = true;
+
 		}
+
+		public override bool MeleePrefix() => true;
+
+		public override void OnHitNPC(Player player, NPC target, NPC.HitInfo hit, int damageDone){
+			target.AddBuff(BuffID.Frostburn2, 300);
+
+		}
+
 
 		public override void AddRecipes()
 		{
