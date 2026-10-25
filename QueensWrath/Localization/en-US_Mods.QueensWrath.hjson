@@ -3,12 +3,39 @@
 
 Items: {
 	PawnPwner: {
-		DisplayName: "Pawn Pwner"
+		DisplayName: Pawn Pwner
 		Tooltip:
 			'''
 			Template of an item
 			Replacing this tooltip is duty 
 			It's snowing on Mt.Fuji
 			'''
+	}
+
+	TestSword: {
+		Tooltip: ""
+		DisplayName: Test Sword
+	}
+
+	NightOfKnightsItem: {
+		DisplayName: Night Of Knights
+		Tooltip: ""
+	}
+
+	BishopStaff: {
+		Tooltip: ""
+		DisplayName: Bishop Staff
+	}
+}
+
+Projectiles: {
+	NightOfKnights.DisplayName: Night Of Knights
+	BishopPiece.DisplayName: Bishop Piece
+}
+
+Buffs: {
+	NightOfKnightsBuff: {
+		Description: Mods.QueensWrath.Buffs.NightOfKnightsBuff.Description
+		DisplayName: Night Of Knights Buff
 	}
 }
