@@ -7,7 +7,7 @@ using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TestingGrounds.Content.Projectiles
+namespace QueensWrath.Content.Projectiles
 {
 	public class RookProjectile : ModProjectile
 	{
