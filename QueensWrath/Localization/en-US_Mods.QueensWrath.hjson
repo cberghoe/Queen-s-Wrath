@@ -26,11 +26,17 @@ Items: {
 		Tooltip: ""
 		DisplayName: Bishop Staff
 	}
+
+	RookRectifier: {
+		DisplayName: Rook Rectifier
+		Tooltip: "Sacrifice... THE ROOOOOOOOK!!!"
+	}
 }
 
 Projectiles: {
 	NightOfKnights.DisplayName: Night Of Knights
 	BishopPiece.DisplayName: Bishop Piece
+	RookProjectile.DisplayName: Rook Projectile
 }
 
 Buffs: {
