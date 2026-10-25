@@ -4,7 +4,7 @@ using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TestingGrounds.Content.Items.Weapons
+namespace QueensWrath.Content.Items
 {
 
 	public class RookRectifier : ModItem
