@@ -21,8 +21,8 @@ namespace QueensWrath.Content.Items
 			Item.DamageType = DamageClass.Magic;
 			// IMPORTANT!!!
 			Item.mana = 10;
-			Item.width = 40;
-			Item.height = 40;
+			Item.width = 48;
+			Item.height = 48;
 			Item.useTime = 22;
 			Item.useAnimation = 22;
 			Item.useStyle = ItemUseStyleID.Shoot;
