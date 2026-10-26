@@ -29,7 +29,7 @@ Items: {
 
 	RookRectifier: {
 		DisplayName: Rook Rectifier
-		Tooltip: "Sacrifice... THE ROOOOOOOOK!!!"
+		Tooltip: Sacrifice... THE ROOOOOOOOK!!!
 	}
 }
 
