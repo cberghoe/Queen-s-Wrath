@@ -142,36 +142,38 @@ namespace QueensWrath.Content.Projectiles.Minions
             State = 0;
             Timer = 0;
 
-            Vector2 idlePosition = owner.Center + new Vector2(-owner.direction * (30 + Projectile.minionPos * 20), -40f);
+            int totalMinions = owner.ownedProjectileCounts[Type];
+            if (totalMinions <= 0) {
+                totalMinions = 1;
+            }
+
+            // Orbit smoothly around the player in a true circle (halo)
+            float rotationSpeed = 0.035f;
+            float baseAngle = (float)(Main.GameUpdateCount * rotationSpeed);
+            float angle = baseAngle + (MathHelper.TwoPi / totalMinions) * Projectile.minionPos;
+
+            float radius = 65f;
+            Vector2 orbitCenter = owner.MountedCenter + new Vector2(0f, -10f);
+            Vector2 idlePosition = orbitCenter + angle.ToRotationVector2() * radius;
+
             Vector2 toIdle = idlePosition - Projectile.Center;
             float distanceToIdle = toIdle.Length();
 
             if (distanceToIdle > 2000f) {
                 Projectile.Center = idlePosition;
-                Projectile.velocity *= 0.1f;
+                Projectile.velocity = Vector2.Zero;
                 Projectile.netUpdate = true;
                 return;
             }
 
-            float speed;
-            float inertia;
-
-            if (distanceToIdle > 600f) {
-                speed = 28f;   // Sprint speed to catch up quickly
-                inertia = 10f;  // Highly responsive turning
-            }
-            else if (distanceToIdle > 250f) {
-                speed = 14f;   // Medium speed
-                inertia = 20f;
+            if (distanceToIdle > 300f) {
+                float speed = 24f;
+                toIdle.Normalize();
+                Projectile.velocity = (Projectile.velocity * 14f + toIdle * speed) / 15f;
             }
             else {
-                speed = 6f;    // Gentle hover speed when close to player
-                inertia = 40f;
-            }
-
-            if (distanceToIdle > 20f) {
-                toIdle.Normalize();
-                Projectile.velocity = (Projectile.velocity * (inertia - 1f) + toIdle * speed) / inertia;
+                Vector2 targetVelocity = toIdle * 0.25f + owner.velocity;
+                Projectile.velocity = Vector2.Lerp(Projectile.velocity, targetVelocity, 0.35f);
             }
         }
 
