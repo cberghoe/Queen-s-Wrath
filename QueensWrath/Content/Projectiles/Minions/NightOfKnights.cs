@@ -1,6 +1,9 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using System;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.Audio;
@@ -21,6 +24,19 @@ namespace QueensWrath.Content.Projectiles.Minions
         // Store the angle of the current dash so it can be offset for the next one
         private float dashAngle = 0f;
 
+        private static Asset<Texture2D> whiteTexture;
+        private static Asset<Texture2D> blackTexture;
+
+        public override void Load() {
+            whiteTexture = ModContent.Request<Texture2D>("QueensWrath/Content/Projectiles/Minions/White_knight");
+            blackTexture = ModContent.Request<Texture2D>("QueensWrath/Content/Projectiles/Minions/Black_Knight");
+        }
+
+        public override void Unload() {
+            whiteTexture = null;
+            blackTexture = null;
+        }
+
         public override void SetStaticDefaults() {
             Main.projFrames[Type] = 1;
             ProjectileID.Sets.MinionTargettingFeature[Type] = true;
@@ -29,15 +45,14 @@ namespace QueensWrath.Content.Projectiles.Minions
         }
 
         public override void SetDefaults() {
-            Projectile.width = 24;
-            Projectile.height = 24;
+            Projectile.width = 20;
+            Projectile.height = 32;
             Projectile.tileCollide = false;
             Projectile.friendly = true;
             Projectile.minion = true;
             Projectile.DamageType = DamageClass.Summon;
             Projectile.minionSlots = 1f;
             Projectile.penetrate = -1;
-            //Projectile.scale = 0.1f;
         }
 
         public override bool MinionContactDamage() => true;
@@ -152,7 +167,11 @@ namespace QueensWrath.Content.Projectiles.Minions
             float baseAngle = (float)(Main.GameUpdateCount * rotationSpeed);
             float angle = baseAngle + (MathHelper.TwoPi / totalMinions) * Projectile.minionPos;
 
-            float radius = 65f;
+            // Expand radius dynamically so minions do not overlap when there are more than 8 summons
+            float baseRadius = 65f;
+            float extraRadius = (totalMinions > 8) ? (totalMinions - 8) * 7f : 0f;
+            float radius = baseRadius + extraRadius;
+
             Vector2 orbitCenter = owner.MountedCenter + new Vector2(0f, -10f);
             Vector2 idlePosition = orbitCenter + angle.ToRotationVector2() * radius;
 
@@ -236,6 +255,19 @@ namespace QueensWrath.Content.Projectiles.Minions
                 );
                 dust.noGravity = true;
             }
+        }
+
+        public override bool PreDraw(ref Color lightColor) {
+            // Alternate white knight and black knight (W/B/W/B)
+            bool isWhite = (Projectile.minionPos % 2 == 0);
+            Texture2D texture = (isWhite ? whiteTexture : blackTexture)?.Value ?? TextureAssets.Projectile[Type].Value;
+
+            SpriteEffects spriteEffects = Projectile.spriteDirection == -1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+            Vector2 origin = texture.Size() / 2f;
+            Vector2 drawPos = Projectile.Center - Main.screenPosition + new Vector2(0f, Projectile.gfxOffY);
+
+            Main.EntitySpriteDraw(texture, drawPos, null, lightColor, Projectile.rotation, origin, Projectile.scale, spriteEffects, 0);
+            return false;
         }
     }
 }
