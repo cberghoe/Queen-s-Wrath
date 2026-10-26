@@ -217,8 +217,11 @@ namespace QueensWrath.Content.Projectiles.Minions
         }
 
         private void Visuals() {
-            // Point projectile in direction of motion
-            Projectile.rotation = Projectile.velocity.ToRotation() + MathHelper.PiOver2;
+            // Keep the knight minion upright without rotating
+            Projectile.rotation = 0f;
+            if (Projectile.velocity.X != 0f) {
+                Projectile.spriteDirection = Projectile.velocity.X > 0f ? 1 : -1;
+            }
 
             if (State == 1 || State == 2) {
                 Dust dust = Dust.NewDustPerfect(
