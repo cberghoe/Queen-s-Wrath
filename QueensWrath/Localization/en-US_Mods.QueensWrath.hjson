@@ -37,6 +37,7 @@ Projectiles: {
 	NightOfKnights.DisplayName: Night Of Knights
 	BishopPiece.DisplayName: Bishop Piece
 	RookProjectile.DisplayName: Rook Projectile
+	PawnLance.DisplayName: Pawn Lance
 }
 
 Buffs: {

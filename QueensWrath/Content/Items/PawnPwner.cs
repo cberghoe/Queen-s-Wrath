@@ -16,7 +16,7 @@ namespace QueensWrath.Content.Items
 
 			Item.DamageType = DamageClass.MeleeNoSpeed; // We need to use MeleeNoSpeed here so that attack speed doesn't effect our held projectile.
 
-			Item.SetWeaponValues(60, 12f, 0); // A special method that sets the damage, knockback, and bonus critical strike chance.
+			Item.SetWeaponValues(100, 12f, 0); // A special method that sets the damage, knockback, and bonus critical strike chance.
 
 			Item.rare = ItemRarityID.LightRed;
 			Item.value = Item.buyPrice(0, 6);
