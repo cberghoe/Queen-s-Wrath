@@ -115,7 +115,7 @@ namespace QueensWrath.Content.Projectiles
 				}
 
 				// Set your dust types here.
-				int dustTypeCommon = ModContent.DustType<Dusts.Sparkle>();
+				int dustTypeCommon = DustID.WhiteTorch;
 				int dustTypeRare = DustID.WhiteTorch;
 
 				int offset = 4; // This offset will affect how much the dust spreads out.
