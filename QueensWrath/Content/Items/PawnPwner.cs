@@ -18,7 +18,8 @@ namespace QueensWrath.Content.Items
 
 			Item.SetWeaponValues(60, 12f, 0); // A special method that sets the damage, knockback, and bonus critical strike chance.
 
-			Item.SetShopValues(ItemRarityColor.LightRed4, Item.buyPrice(0, 6)); // A special method that sets the rarity and value.
+			Item.rare = ItemRarityID.LightRed;
+			Item.value = Item.buyPrice(0, 6);
 
 			Item.channel = true; // Channel is important for our projectile.
 
