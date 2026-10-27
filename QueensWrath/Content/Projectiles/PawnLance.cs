@@ -86,7 +86,11 @@ namespace QueensWrath.Content.Projectiles
 
 			// Set the rotation of the projectile.
 			// For reference, 0 is the top left, 180 degrees or pi radians is the bottom right.
-			Projectile.rotation = (float)Math.Atan2(Projectile.velocity.Y, Projectile.velocity.X) + (float)Math.PI * 3 / 4f;
+			Projectile.rotation =
+   			 (float)Math.Atan2(
+        		Projectile.velocity.Y,
+        		Projectile.velocity.X
+    		) + MathHelper.PiOver2;
 
 			// Fade the projectile in when it first spawns
 			Projectile.alpha -= 40;
@@ -144,37 +148,36 @@ namespace QueensWrath.Content.Projectiles
 		}
 
 		// This is the custom collision that Jousting Lances uses. 
-		public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) {
-			float rotationFactor = Projectile.rotation - (3 * MathHelper.PiOver4) - ((Projectile.spriteDirection == 1) ? MathHelper.Pi : MathHelper.PiOver2); // The rotation of the Jousting Lance.
-			float scaleFactor = 95f; // How far back the hit-line will be from the tip of the Jousting Lance. You will need to modify this if you have a longer or shorter Jousting Lance. Vanilla uses 95f
-			float widthMultiplier = 23f; // How thick the hit-line is. Increase or decrease this value if your Jousting Lance is thicker or thinner. Vanilla uses 23f
-			float collisionPoint = 0f; // collisionPoint is needed for CheckAABBvLineCollision(), but it isn't used for our collision here. Keep it at 0f.
+		public override bool? Colliding(
+    Rectangle projHitbox,
+    Rectangle targetHitbox)
+{
+    // The tip is Projectile.Center.
+    Vector2 tip = Projectile.Center;
 
-			// This Rectangle is the width and height of the Jousting Lance's hitbox which is used for the first step of collision.
-			// You will need to modify the last two numbers if you have a bigger or smaller Jousting Lance.
-			// Vanilla uses (0, 0, 300, 300) which that is quite large for the size of the Jousting Lance.
-			// The size doesn't matter too much because this rectangle is only a basic check for the collision (the hit-line is much more important).
-			Rectangle lanceHitboxBounds = new Rectangle(0, 0, 300, 300);
+    // The PNG points upward, so the shaft extends opposite
+    // the projectile's direction of travel.
+    Vector2 shaftDirection = -Projectile.velocity.SafeNormalize(Vector2.UnitX);
 
-			// Set the position of the large rectangle.
-			lanceHitboxBounds.X = (int)Projectile.position.X - lanceHitboxBounds.Width / 2;
-			lanceHitboxBounds.Y = (int)Projectile.position.Y - lanceHitboxBounds.Height / 2;
+    // Adjust this to match the visible length of your PNG.
+    float lanceLength = 95f;
 
-			// This is the back of the hit-line with Projectile.Center being the tip of the Jousting Lance.
-			Vector2 hitLineEnd = Projectile.Center + rotationFactor.ToRotationVector2() * scaleFactor;
+    // Adjust this to match the thickness of your lance.
+    float lanceWidth = 12f;
 
-			// The following is for debugging the size of the hit line. This will allow you to easily see where it starts and ends.
-			// Dust.NewDustPerfect(Projectile.Center, DustID.Pixie, Velocity: Vector2.Zero, Scale: 0.5f);
-			// Dust.NewDustPerfect(hitLineEnd, DustID.Pixie, Velocity: Vector2.Zero, Scale: 0.5f);
+    Vector2 basePosition = tip + shaftDirection * lanceLength;
 
-			// First check that our large rectangle intersects with the target hitbox.
-			// Then we check to see if a line from the tip of the Jousting Lance to the "end" of the lance intersects with the target hitbox.
-			if (lanceHitboxBounds.Intersects(targetHitbox)
-				&& Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), Projectile.Center, hitLineEnd, widthMultiplier * Projectile.scale, ref collisionPoint)) {
-				return true;
-			}
-			return false;
-		}
+    float collisionPoint = 0f;
+
+    return Collision.CheckAABBvLineCollision(
+        targetHitbox.TopLeft(),
+        targetHitbox.Size(),
+        tip,
+        basePosition,
+        lanceWidth,
+        ref collisionPoint
+    );
+}
 
 		// We need to draw the projectile manually. If you don't include this, the Jousting Lance will not be aligned with the player.
 		public override bool PreDraw(ref Color lightColor) {
@@ -186,38 +189,48 @@ namespace QueensWrath.Content.Projectiles
 			Texture2D texture = TextureAssets.Projectile[Type].Value;
 
 			// Get the currently selected frame on the texture.
-			Rectangle sourceRectangle = texture.Frame(1, Main.projFrames[Type], frameY: Projectile.frame);
+			Rectangle sourceRectangle = texture.Bounds;
 
 			// The origin in this case is (0, 0) of our projectile because Projectile.Center is the tip of our Jousting Lance.
-			Vector2 origin = Vector2.Zero;
+			Vector2 origin = new Vector2(
+				sourceRectangle.Width / 2f, 0f
+			);
 
 			// The rotation of the projectile.
-			float rotation = Projectile.rotation;
-
+			float rotation = Projectile.velocity.ToRotation() + MathHelper.PiOver2;
 			// If the projectile is facing right, we need to rotate it by -90 degrees, move the origin, and flip the sprite horizontally.
 			// This will make it so the bottom of the sprite is correctly facing down when shot to the right.
-			if (Projectile.direction > 0) {
-				rotation -= (float)Math.PI / 2f;
-				origin.X += sourceRectangle.Width;
-				spriteEffects = SpriteEffects.FlipHorizontally;
-			}
+			
 
 			// The position of the sprite. Not subtracting Projectile.gfxOffY will cause the sprite to bounce when walking up blocks.
-			Vector2 position = new(Projectile.Center.X, Projectile.Center.Y - Projectile.gfxOffY);
+			Vector2 position = Projectile.Center - Main.screenPosition;
+
+			
+
+			// Flip horizontally when facing left.
+   			//  SpriteEffects spriteEffects = Projectile.direction == -1
+        	// 	? SpriteEffects.FlipHorizontally
+        	// 	: SpriteEffects.None;
 
 			// Apply lighting and draw our projectile
 			Color drawColor = Projectile.GetAlpha(lightColor);
-
-			Main.EntitySpriteDraw(texture,
-				position - Main.screenPosition + new Vector2(0f, Projectile.gfxOffY),
-				sourceRectangle, drawColor, rotation, origin, Projectile.scale, spriteEffects, 0);
 
 			// The following is for debugging the size of the collision rectangle. Set this to the same size as the one you have in Colliding().
 			// Rectangle lanceHitboxBounds = new Rectangle(0, 0, 300, 300);
 			// Main.EntitySpriteDraw(TextureAssets.MagicPixel.Value,
 			// 	new Vector2((int)Projectile.Center.X - lanceHitboxBounds.Width / 2, (int)Projectile.Center.Y - lanceHitboxBounds.Height / 2) - Main.screenPosition,
 			// 	lanceHitboxBounds, Color.Orange * 0.5f, 0, Vector2.Zero, 1f, SpriteEffects.None, 0);
-
+ 			Main.EntitySpriteDraw(
+        			texture,
+        			position,
+        			sourceRectangle,
+        			drawColor,
+        			rotation,
+        			origin,
+        			Projectile.scale,
+        			spriteEffects,
+        			0
+    			);
 			// It's important to return false, otherwise we also draw the original texture.
 			return false;
 		}
