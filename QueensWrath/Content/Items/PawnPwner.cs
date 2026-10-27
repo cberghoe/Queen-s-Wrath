@@ -12,7 +12,7 @@ namespace QueensWrath.Content.Items
 		// The Display Name and Tooltip of this item can be edited in the 'Localization/en-US_Mods.TestMod.hjson' file.
 		public override void SetDefaults()
 		{
-			Item.damage = 15;
+			Item.damage = 100;
 			Item.DamageType = DamageClass.MeleeNoSpeed;
 			Item.width = 20;
 			Item.height = 80;
