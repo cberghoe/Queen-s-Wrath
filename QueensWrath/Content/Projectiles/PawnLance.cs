@@ -41,7 +41,6 @@ namespace QueensWrath.Content.Projectiles
 			Projectile.penetrate = -1; // Infinite penetration. The projectile can hit an infinite number of enemies.
 			Projectile.tileCollide = false; // Don't kill the projectile if it hits a tile.
 			Projectile.hide = true; // Sets the draw layer of the projectile to be in front of the player's body but behind the player's arm.
-			Projectile.usesOwnerLight = true; // The projectile will take lighting information from the player's position instead of the projectile's position, which is the tip of the jousting lance in this case.
 			Projectile.scale = 1f; // The scale of the projectile. This only effects the drawing and the width of the collision.
 			Projectile.ownerHitCheck = true; // Make sure the owner of the projectile has line of sight to the target (aka can't hit things through tile).
 			Projectile.DamageType = DamageClass.MeleeNoSpeed; // Set the damage to melee damage.
