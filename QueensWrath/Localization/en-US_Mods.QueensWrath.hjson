@@ -31,17 +31,43 @@ Items: {
 		DisplayName: Rook Rectifier
 		Tooltip: Sacrifice... THE ROOOOOOOOK!!!
 	}
+
+	SiegeBastion: {
+		DisplayName: Siege Bastion
+		Tooltip:
+			'''
+			Left-click fires a supersonic granite monolith that pierces up to 6 enemies
+			Right-click launches a slow-moving beacon in any direction
+			Press Right-click again while the beacon is active to Castle — swap positions with it!
+			Swapping deals guaranteed critical damage to all enemies in your path,
+			detonates the beacon into cross shockwaves, and grants invincibility and +30 defense
+			'The fortress moves. The fortress strikes.'
+			'''
+	}
 }
 
 Projectiles: {
 	NightOfKnights.DisplayName: Night Of Knights
 	BishopPiece.DisplayName: Bishop Piece
 	RookProjectile.DisplayName: Rook Projectile
+	SiegeBastionProjectile.DisplayName: Siege Bastion Monolith
+	SiegeBastionShockwave.DisplayName: Siege Bastion Shockwave
+	SiegeBastionBeacon.DisplayName: Siege Bastion Beacon
 }
 
 Buffs: {
 	NightOfKnightsBuff: {
 		Description: Mods.QueensWrath.Buffs.NightOfKnightsBuff.Description
 		DisplayName: Night Of Knights Buff
+	}
+
+	EntrenchedBuff: {
+		DisplayName: Entrenched
+		Description: +30 defense — the fortress holds
+	}
+
+	CastlingCooldownDebuff: {
+		DisplayName: Castling Cooldown
+		Description: Cannot perform Castling
 	}
 }
