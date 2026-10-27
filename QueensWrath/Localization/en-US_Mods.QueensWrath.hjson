@@ -53,6 +53,7 @@ Projectiles: {
 	SiegeBastionProjectile.DisplayName: Siege Bastion Monolith
 	SiegeBastionShockwave.DisplayName: Siege Bastion Shockwave
 	SiegeBastionBeacon.DisplayName: Siege Bastion Beacon
+	PawnLance.DisplayName: Pawn Lance
 }
 
 Buffs: {
