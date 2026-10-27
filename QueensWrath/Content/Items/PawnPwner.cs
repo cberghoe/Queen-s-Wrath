@@ -12,7 +12,7 @@ namespace QueensWrath.Content.Items
 		// The Display Name and Tooltip of this item can be edited in the 'Localization/en-US_Mods.TestMod.hjson' file.
 		public override void SetDefaults()
 		{
-			Item.DefaultToSpear(ModContent.ProjectileType<Projectiles.ExampleJoustingLanceProjectile>(), 1f, 24);
+			Item.DefaultToSpear(ModContent.ProjectileType<Projectiles.PawnLance>(), 1f, 24);
 
 			Item.DamageType = DamageClass.MeleeNoSpeed; // We need to use MeleeNoSpeed here so that attack speed doesn't effect our held projectile.
 
