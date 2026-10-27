@@ -12,6 +12,26 @@ namespace QueensWrath.Content.Projectiles
 {
     public class SiegeBastionProjectile : ModProjectile
     {
+        private static readonly Vector2[] CrossDirections = new Vector2[] {
+            -Vector2.UnitY,
+            Vector2.UnitY,
+            -Vector2.UnitX,
+            Vector2.UnitX
+        };
+
+        private static readonly SoundStyle DetonateExplosionSound = SoundID.Item14 with {
+            Volume = 0.9f,
+            Pitch = -0.2f,
+            MaxInstances = 3,
+            SoundLimitBehavior = SoundLimitBehavior.ReplaceOldest
+        };
+
+        private static readonly SoundStyle DetonateChimeSound = SoundID.Item105 with {
+            Volume = 0.7f,
+            MaxInstances = 3,
+            SoundLimitBehavior = SoundLimitBehavior.ReplaceOldest
+        };
+
         public override void SetStaticDefaults() {
             ProjectileID.Sets.TrailCacheLength[Type] = 8;
             // IMPORTANT: TrailingMode 2 records old positions and rotations for afterimages
@@ -89,8 +109,8 @@ namespace QueensWrath.Content.Projectiles
             if (Projectile.ai[0] == 1f) return;
             Projectile.ai[0] = 1f;
 
-            SoundEngine.PlaySound(SoundID.Item14 with { Volume = 0.9f, Pitch = -0.2f }, Projectile.Center);
-            SoundEngine.PlaySound(SoundID.Item105 with { Volume = 0.7f }, Projectile.Center);
+            SoundEngine.PlaySound(DetonateExplosionSound, Projectile.Center);
+            SoundEngine.PlaySound(DetonateChimeSound, Projectile.Center);
 
             for (int i = 0; i < 30; i++) {
                 Dust d = Dust.NewDustPerfect(Projectile.Center, DustID.LunarOre,
@@ -108,18 +128,11 @@ namespace QueensWrath.Content.Projectiles
                 int shockwaveDamage = (int)(Projectile.damage * 0.5f);
                 float shockwaveSpeed = 14f;
 
-                Vector2[] directions = new Vector2[] {
-                    new Vector2(0f, -1f),
-                    new Vector2(0f, 1f),
-                    new Vector2(-1f, 0f),
-                    new Vector2(1f, 0f)
-                };
-
-                foreach (Vector2 dir in directions) {
+                for (int i = 0; i < CrossDirections.Length; i++) {
                     Projectile.NewProjectile(
                         Projectile.GetSource_FromThis(),
                         Projectile.Center,
-                        dir * shockwaveSpeed,
+                        CrossDirections[i] * shockwaveSpeed,
                         shockwaveType,
                         shockwaveDamage,
                         Projectile.knockBack * 0.5f,

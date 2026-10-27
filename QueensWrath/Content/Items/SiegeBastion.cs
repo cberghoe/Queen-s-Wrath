@@ -12,6 +12,19 @@ namespace QueensWrath.Content.Items
 {
     public class SiegeBastion : ModItem
     {
+        private static readonly SoundStyle CastlingSwapSound1 = SoundID.Item8 with {
+            Volume = 0.9f,
+            MaxInstances = 2,
+            SoundLimitBehavior = SoundLimitBehavior.ReplaceOldest
+        };
+
+        private static readonly SoundStyle CastlingSwapSound2 = SoundID.Item105 with {
+            Volume = 0.7f,
+            Pitch = -0.3f,
+            MaxInstances = 2,
+            SoundLimitBehavior = SoundLimitBehavior.ReplaceOldest
+        };
+
         public override void SetDefaults() {
             Item.damage = 280;
             Item.DamageType = DamageClass.Ranged;
@@ -25,7 +38,7 @@ namespace QueensWrath.Content.Items
             Item.knockBack = 9.5f;
             Item.value = Item.sellPrice(gold: 15);
             Item.rare = ItemRarityID.Red;
-            Item.UseSound = SoundID.Item14;
+            Item.UseSound = SoundID.Item61;
             Item.autoReuse = true;
             Item.shoot = ModContent.ProjectileType<SiegeBastionProjectile>();
             Item.shootSpeed = 28f;
@@ -66,7 +79,7 @@ namespace QueensWrath.Content.Items
                     Item.useStyle = ItemUseStyleID.HoldUp;
                     Item.useTime = 14;
                     Item.useAnimation = 14;
-                    Item.UseSound = SoundID.Item105;
+                    Item.UseSound = null;
                 }
                 Item.noUseGraphic = false;
             }
@@ -74,7 +87,7 @@ namespace QueensWrath.Content.Items
                 Item.useStyle = ItemUseStyleID.Shoot;
                 Item.useTime = 24;
                 Item.useAnimation = 24;
-                Item.UseSound = SoundID.Item14;
+                Item.UseSound = SoundID.Item61;
                 Item.noUseGraphic = false;
             }
 
@@ -177,7 +190,7 @@ namespace QueensWrath.Content.Items
             }
 
             if (dashLength > 0.001f) {
-                Vector2 dashDir = Vector2.Normalize(toDest);
+                Vector2 dashDir = toDest / dashLength;
 
                 for (int i = 0; i < Main.maxNPCs; i++) {
                     NPC npc = Main.npc[i];
@@ -228,8 +241,8 @@ namespace QueensWrath.Content.Items
             player.AddBuff(ModContent.BuffType<EntrenchedBuff>(), 240);
             player.AddBuff(ModContent.BuffType<CastlingCooldownDebuff>(), 360);
 
-            SoundEngine.PlaySound(SoundID.Item8 with { Volume = 0.9f }, player.Center);
-            SoundEngine.PlaySound(SoundID.Item105 with { Volume = 0.7f, Pitch = -0.3f }, player.Center);
+            SoundEngine.PlaySound(CastlingSwapSound1, player.Center);
+            SoundEngine.PlaySound(CastlingSwapSound2, player.Center);
 
             for (int i = 0; i < 24; i++) {
                 Dust d = Dust.NewDustPerfect(startPos, DustID.Granite,
@@ -239,7 +252,7 @@ namespace QueensWrath.Content.Items
 
             int trailSteps = (int)(dashLength / 14f);
             if (dashLength > 0.001f) {
-                Vector2 dashDir = Vector2.Normalize(toDest);
+                Vector2 dashDir = toDest / dashLength;
                 for (int i = 0; i < trailSteps; i++) {
                     Vector2 p = startPos + dashDir * (i * 14f);
                     Dust d = Dust.NewDustPerfect(p, DustID.LunarOre,

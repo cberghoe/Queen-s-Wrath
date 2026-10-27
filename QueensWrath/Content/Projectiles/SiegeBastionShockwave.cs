@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
-using Terraria.Audio;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -67,7 +66,6 @@ namespace QueensWrath.Content.Projectiles
         }
 
         public override void OnKill(int timeLeft) {
-            SoundEngine.PlaySound(SoundID.Item14 with { Volume = 0.4f, Pitch = 0.5f }, Projectile.position);
             for (int i = 0; i < 10; i++) {
                 Dust d = Dust.NewDustPerfect(Projectile.Center, DustID.Vortex,
                     Main.rand.NextVector2Circular(4f, 4f), 0, default, 1.2f);

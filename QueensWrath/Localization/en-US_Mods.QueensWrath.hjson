@@ -23,8 +23,13 @@ Items: {
 	}
 
 	BishopStaff: {
-		Tooltip: ""
 		DisplayName: Bishop Staff
+		Tooltip:
+			'''
+			Summons four diagonal celestial bishop pieces with radiant energy trails
+			The bishops converge and unleash devastating crescent slash arcs in a cross formation
+			Enemies caught in the epicenter of the convergence suffer a guaranteed critical strike
+			'''
 	}
 
 	RookRectifier: {
@@ -49,6 +54,8 @@ Items: {
 Projectiles: {
 	NightOfKnights.DisplayName: Night Of Knights
 	BishopPiece.DisplayName: Bishop Piece
+	BishopSlash.DisplayName: Bishop Slash
+	BishopPhantomTrail.DisplayName: Bishop Trail
 	RookProjectile.DisplayName: Rook Projectile
 	SiegeBastionProjectile.DisplayName: Siege Bastion Monolith
 	SiegeBastionShockwave.DisplayName: Siege Bastion Shockwave
