@@ -12,18 +12,20 @@ namespace QueensWrath.Content.Items
 		// The Display Name and Tooltip of this item can be edited in the 'Localization/en-US_Mods.TestMod.hjson' file.
 		public override void SetDefaults()
 		{
-			Item.damage = 100;
-			Item.DamageType = DamageClass.MeleeNoSpeed;
-			Item.width = 20;
-			Item.height = 80;
-			Item.useTime = 24;
-			Item.useAnimation = 24;
-			Item.useStyle = ItemUseStyleID.Swing;
-			Item.knockBack = 25;
-			Item.value = Item.buyPrice(silver: 1);
-			Item.rare = ItemRarityID.Blue;
-			Item.UseSound = SoundID.Item1;
-			Item.autoReuse = true;
+			Item.DefaultToSpear(ModContent.ProjectileType<Projectiles.ExampleJoustingLanceProjectile>(), 1f, 24);
+
+			Item.DamageType = DamageClass.MeleeNoSpeed; // We need to use MeleeNoSpeed here so that attack speed doesn't effect our held projectile.
+
+			Item.SetWeaponValues(60, 12f, 0); // A special method that sets the damage, knockback, and bonus critical strike chance.
+
+			Item.SetShopValues(ItemRarityColor.LightRed4, Item.buyPrice(0, 6)); // A special method that sets the rarity and value.
+
+			Item.channel = true; // Channel is important for our projectile.
+
+			// This will make sure our projectile completely disappears on hurt.
+			// It's not enough just to stop the channel, as the lance can still deal damage while being stowed
+			// If two players charge at each other, the first one to hit should cancel the other's lance
+			Item.StopAnimationOnHurt = true;
 
 		}
 
