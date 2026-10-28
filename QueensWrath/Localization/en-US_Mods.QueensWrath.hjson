@@ -1,6 +1,3 @@
-# This file will automatically update with entries for new content after a build and reload.
-# Please read https://github.com/tModLoader/tModLoader/wiki/Localization to learn more about localization and these files.
-
 Items: {
 	PawnPwner: {
 		DisplayName: Pawn Pwner
@@ -23,20 +20,55 @@ Items: {
 	}
 
 	BishopStaff: {
-		Tooltip: ""
 		DisplayName: Bishop Staff
+		Tooltip:
+			'''
+			Summons four diagonal celestial bishop pieces with radiant energy trails
+			The bishops converge and unleash devastating crescent slash arcs in a cross formation
+			Enemies caught in the epicenter of the convergence suffer a guaranteed critical strike
+			'''
 	}
 
 	RookRectifier: {
 		DisplayName: Rook Rectifier
 		Tooltip: Sacrifice... THE ROOOOOOOOK!!!
 	}
+
+	SiegeBastion: {
+		DisplayName: Siege Bastion
+		Tooltip:
+			'''
+			Left-click fires a supersonic granite monolith that pierces up to 6 enemies
+			Right-click launches a slow-moving beacon in any direction
+			Press Right-click again while the beacon is active to Castle — swap positions with it!
+			Swapping deals guaranteed critical damage to all enemies in your path,
+			detonates the beacon into cross shockwaves, and grants invincibility and +30 defense
+			'The fortress moves. The fortress strikes.'
+			'''
+	}
+
+	BossTestSummoner: {
+		DisplayName: Ritual Guide Effigy
+		Tooltip:
+			'''
+			Summons a test sacrifice Guide NPC
+			Slay the NPC to summon the boss (Eye of Cthulhu test placeholder)
+			Crafted from Dirt or Mud for easy testing
+			'''
+	}
 }
+
+NPCs.BossTestNPC.DisplayName: Ritual Guide
 
 Projectiles: {
 	NightOfKnights.DisplayName: Night Of Knights
 	BishopPiece.DisplayName: Bishop Piece
+	BishopSlash.DisplayName: Bishop Slash
+	BishopPhantomTrail.DisplayName: Bishop Trail
 	RookProjectile.DisplayName: Rook Projectile
+	SiegeBastionProjectile.DisplayName: Siege Bastion Monolith
+	SiegeBastionShockwave.DisplayName: Siege Bastion Shockwave
+	SiegeBastionBeacon.DisplayName: Siege Bastion Beacon
 	PawnLance.DisplayName: Pawn Lance
 }
 
@@ -44,5 +76,15 @@ Buffs: {
 	NightOfKnightsBuff: {
 		Description: Mods.QueensWrath.Buffs.NightOfKnightsBuff.Description
 		DisplayName: Night Of Knights Buff
+	}
+
+	EntrenchedBuff: {
+		DisplayName: Entrenched
+		Description: +30 defense — the fortress holds
+	}
+
+	CastlingCooldownDebuff: {
+		DisplayName: Castling Cooldown
+		Description: Cannot perform Castling
 	}
 }
