@@ -11,6 +11,8 @@ namespace QueensWrath.Content.Projectiles
 {
 	public class PawnLance : ModProjectile
 	{
+		private bool launched;
+		private bool wasRightClickDown;
 		public override void SetStaticDefaults() {
 			// This will cause the player to dismount if they are hit by another Jousting Lance.
 			// Since no enemies use Jousting Lances, this will only cause the player to dismount in PVP.
@@ -40,7 +42,7 @@ namespace QueensWrath.Content.Projectiles
 			Projectile.friendly = true; // Player shot projectile. Does damage to enemies but not to friendly Town NPCs.
 			Projectile.penetrate = -1; // Infinite penetration. The projectile can hit an infinite number of enemies.
 			Projectile.tileCollide = false; // Don't kill the projectile if it hits a tile.
-			Projectile.hide = true; // Sets the draw layer of the projectile to be in front of the player's body but behind the player's arm.
+			Projectile.hide = false; // Sets the draw layer of the projectile to be in front of the player's body but behind the player's arm.
 			Projectile.scale = 1f; // The scale of the projectile. This only effects the drawing and the width of the collision.
 			Projectile.ownerHitCheck = true; // Make sure the owner of the projectile has line of sight to the target (aka can't hit things through tile).
 			Projectile.DamageType = DamageClass.MeleeNoSpeed; // Set the damage to melee damage.
@@ -52,37 +54,59 @@ namespace QueensWrath.Content.Projectiles
 		// This is the behavior of the Jousting Lances.
 		public override void AI() {
 			Player owner = Main.player[Projectile.owner]; // Get the owner of the projectile.
-			Projectile.direction = owner.direction; // Direction will be -1 when facing left and +1 when facing right. 
-			owner.heldProj = Projectile.whoAmI; // Set the owner's held projectile to this projectile. heldProj is used so that the projectile will be killed when the player drops or swap items.
-
-			int itemAnimationMax = owner.itemAnimationMax;
-			// Remember, frames count down from itemAnimationMax to 0
-			// Frame at which the lance is fully extended. Hold at this frame before retracting.
-			// Scale factor (0.34f) means the last 34% of the animation will be used for retracting.
-			int holdOutFrame = (int)(itemAnimationMax * 0.34f);
-			if (owner.channel && owner.itemAnimation < holdOutFrame) {
-				owner.SetDummyItemTime(holdOutFrame); // This makes it so the projectile never dies while we are holding it (except when we take damage, see ExampleJoustingLancePlayer).
-			}
-
-			// If the Jousting Lance is no longer being used, kill the projectile.
-			if (owner.ItemAnimationEndingOrEnded) {
+			if (!owner.active || owner.dead)
+			{
 				Projectile.Kill();
 				return;
 			}
 
+			Projectile.direction = owner.direction;
+			owner.heldProj = Projectile.whoAmI;
+			owner.itemRotation = Projectile.velocity.ToRotation();
+			
+			if (owner.whoAmI == Main.myPlayer && !launched)
+		{
+			bool rightClickDown = Main.mouseRight;
+
+			if (rightClickDown && !wasRightClickDown)
+			{
+				LaunchPlayer(owner);
+			}
+
+			wasRightClickDown = rightClickDown;
+		}
+
+		
+
+			if (owner.ItemAnimationEndingOrEnded)
+			{
+				Projectile.Kill();
+				return;
+			}
+
+			int itemAnimationMax = Math.Max(owner.itemAnimationMax, 1);
+			int holdOutFrame = Math.Max((int)(itemAnimationMax * 0.34f), 1);
+
 			int itemAnimation = owner.itemAnimation;
-			// extension and retraction factors (0-1). As the animation plays out, extension goes from 0-1 and stays at 1 while holding, then retraction goes from 0-1.
-			float extension = 1 - Math.Max(itemAnimation - holdOutFrame, 0) / (float)(itemAnimationMax - holdOutFrame);
-			float retraction = 1 - Math.Min(itemAnimation, holdOutFrame) / (float)holdOutFrame;
+
+			float extension = 1f - Math.Max(itemAnimation - holdOutFrame, 0)
+				/ (float)Math.Max(itemAnimationMax - holdOutFrame, 1);
+
+			float retraction = 1f - Math.Min(itemAnimation, holdOutFrame)
+   		 		/ (float)holdOutFrame;
 
 			// Distances are in pixels
 			float extendDist = 24; // How far to fly out during extension
 			float retractDist = extendDist / 2; // How far to fly back during retraction
-			float tipDist = 98 + extension * extendDist - retraction * retractDist; // If your Jousting Lance is larger or smaller than the standard size, it is recommended to change the shoot speed of the item instead of this value.
+			float tipDist = 60 + extension * extendDist - retraction * retractDist; // If your Jousting Lance is larger or smaller than the standard size, it is recommended to change the shoot speed of the item instead of this value.
 
-			Vector2 center = owner.RotatedRelativePoint(owner.MountedCenter); // Get the center of the owner. This accounts for the player being shifted up or down while riding a mount, sitting in a chair, etc.
-			Projectile.Center = center; // Set the center of the projectile to the center of the owner. Projectile.Center is now actually the tip of the Jousting Lance.
-			Projectile.position += Projectile.velocity * tipDist; // The projectile velocity contains the orientation of the lance, multiply it by the tipDist to position the tip.
+			Vector2 center = owner.RotatedRelativePoint(owner.MountedCenter);
+			if (owner.channel && owner.itemAnimation < holdOutFrame)
+			{
+				owner.SetDummyItemTime(holdOutFrame);
+			}
+			// Position the lance tip directly.
+			Projectile.Center = center + Projectile.velocity * tipDist;
 
 			// Set the rotation of the projectile.
 			// For reference, 0 is the top left, 180 degrees or pi radians is the bottom right.
@@ -138,7 +162,21 @@ namespace QueensWrath.Content.Projectiles
 				}
 			}
 		}
+		public void LaunchPlayer(Player player)
+		{
+			if (launched)
+				return;
 
+			Vector2 launchDirection = Projectile.velocity.SafeNormalize(
+				Vector2.UnitX * player.direction
+			);
+
+			player.velocity = launchDirection * 16f;
+			player.noFallDmg = true;
+
+			launched = true;
+			Projectile.netUpdate = true;
+}
 		public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers) {
 			// This will increase or decrease the knockback of the Jousting Lance depending on how fast the player is moving.
 			modifiers.Knockback *= Main.player[Projectile.owner].velocity.Length() / 7f;
@@ -160,7 +198,7 @@ namespace QueensWrath.Content.Projectiles
     Vector2 shaftDirection = -Projectile.velocity.SafeNormalize(Vector2.UnitX);
 
     // Adjust this to match the visible length of your PNG.
-    float lanceLength = 95f;
+    float lanceLength = 75f;
 
     // Adjust this to match the thickness of your lance.
     float lanceWidth = 12f;
@@ -215,6 +253,8 @@ namespace QueensWrath.Content.Projectiles
 			// Apply lighting and draw our projectile
 			Color drawColor = Projectile.GetAlpha(lightColor);
 
+			Vector2 scale = new Vector2(1.5f, 2.0f);
+
 			// The following is for debugging the size of the collision rectangle. Set this to the same size as the one you have in Colliding().
 			// Rectangle lanceHitboxBounds = new Rectangle(0, 0, 300, 300);
 			// Main.EntitySpriteDraw(TextureAssets.MagicPixel.Value,
@@ -227,7 +267,7 @@ namespace QueensWrath.Content.Projectiles
         			drawColor,
         			rotation,
         			origin,
-        			Projectile.scale,
+        			scale,
         			spriteEffects,
         			0
     			);

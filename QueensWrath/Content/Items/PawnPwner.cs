@@ -1,6 +1,9 @@
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Microsoft.Xna.Framework;
+using Terraria.DataStructures;
+using QueensWrath.Content.Projectiles;
 
 namespace QueensWrath.Content.Items
 {
@@ -45,5 +48,35 @@ namespace QueensWrath.Content.Items
 			recipe.AddTile(TileID.WorkBenches);
 			recipe.Register();
 		}
+public override bool AltFunctionUse(Player player)
+{
+    return true;
+}
+
+public override bool CanUseItem(Player player)
+{
+    // Both left-click and right-click can use the item.
+    return true;
+}
+
+public override bool Shoot(
+    Player player,
+    Terraria.DataStructures.EntitySource_ItemUse_WithAmmo source,
+    Vector2 position,
+    Vector2 velocity,
+    int type,
+    int damage,
+    float knockback)
+{
+    // Right-click should not spawn another lance.
+    // The existing lance projectile handles the launch.
+    if (player.altFunctionUse == 2)
+    {
+        return false;
+    }
+
+    // Let Terraria spawn the lance normally on left-click.
+    return true;
+}
 	}
 }

@@ -93,5 +93,20 @@ namespace QueensWrath.Content.Projectiles
 			Collision.HitTiles(Projectile.position + Projectile.velocity, Projectile.velocity, Projectile.width, Projectile.height);
 			SoundEngine.PlaySound(SoundID.Item10, Projectile.position);
 		}
+		public void LaunchPlayer(Player player)
+	{
+	    // Launch direction follows the lance's direction.
+	    Vector2 launchDirection = Projectile.velocity.SafeNormalize(
+	        Vector2.UnitX * player.direction
+	    );
+
+	    // Adjust this value to control launch strength.
+	    float launchSpeed = 16f;
+
+	    player.velocity = launchDirection * launchSpeed;
+
+	    // Optional: prevent fall damage during the launch.
+	    player.noFallDmg = true;
+	}
 	}
 }
