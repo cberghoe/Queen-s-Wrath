@@ -58,7 +58,10 @@ Items: {
 	}
 }
 
-NPCs.BossTestNPC.DisplayName: Ritual Guide
+NPCs: {
+	BossTestNPC.DisplayName: Ritual Guide
+	KingPiece.DisplayName: King Piece
+}
 
 Projectiles: {
 	NightOfKnights.DisplayName: Night Of Knights
