@@ -22,7 +22,7 @@ namespace QueensWrath.Content.Items
 
 		public override bool CanUseItem(Player player)
 		{
-			return !NPC.AnyNPCs(ModContent.NPCType<BossTestNPC>());
+			return !NPC.AnyNPCs(ModContent.NPCType<KingPiece>());
 		}
 
 		public override bool? UseItem(Player player)
@@ -33,11 +33,11 @@ namespace QueensWrath.Content.Items
 
 				if (Main.netMode != NetmodeID.MultiplayerClient)
 				{
-					NPC.NewNPC(player.GetSource_ItemUse(Item), (int)player.Center.X + player.direction * 60, (int)player.Center.Y, ModContent.NPCType<BossTestNPC>());
+					NPC.NewNPC(player.GetSource_ItemUse(Item), (int)player.Center.X + player.direction * 60, (int)player.Center.Y, ModContent.NPCType<KingPiece>());
 				}
 				else
 				{
-					NetMessage.SendData(MessageID.SpawnBossUseLicenseStartEvent, number: player.whoAmI, number2: ModContent.NPCType<BossTestNPC>());
+					NetMessage.SendData(MessageID.SpawnBossUseLicenseStartEvent, number: player.whoAmI, number2: ModContent.NPCType<KingPiece>());
 				}
 			}
 

@@ -8,19 +8,19 @@
     "net8.0": []
   },
   "packageFolders": {
-    "C:\\Users\\Danek\\.nuget\\packages\\": {}
+    "C:\\Users\\User\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\git\\Queen-s-Wrath\\QueensWrath\\QueensWrath.csproj",
+      "projectUniqueName": "C:\\Dev\\GitHub\\Queen-s-Wrath\\QueensWrath\\QueensWrath.csproj",
       "projectName": "QueensWrath",
-      "projectPath": "D:\\git\\Queen-s-Wrath\\QueensWrath\\QueensWrath.csproj",
-      "packagesPath": "C:\\Users\\Danek\\.nuget\\packages\\",
-      "outputPath": "D:\\git\\Queen-s-Wrath\\QueensWrath\\obj\\",
+      "projectPath": "C:\\Dev\\GitHub\\Queen-s-Wrath\\QueensWrath\\QueensWrath.csproj",
+      "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
+      "outputPath": "C:\\Dev\\GitHub\\Queen-s-Wrath\\QueensWrath\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\Danek\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
@@ -64,7 +64,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.426/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.425/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
