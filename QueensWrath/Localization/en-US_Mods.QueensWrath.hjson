@@ -56,6 +56,11 @@ Items: {
 			Crafted from Dirt or Mud for easy testing
 			'''
 	}
+
+	LuminiteKingPiece: {
+		DisplayName: Luminite King Piece
+		Tooltip: ""
+	}
 }
 
 NPCs: {
