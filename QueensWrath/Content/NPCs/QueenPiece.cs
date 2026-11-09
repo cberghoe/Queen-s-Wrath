@@ -1,5 +1,7 @@
-using Microsoft.Xna.Framework;
 using System;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using Terraria;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
@@ -10,165 +12,125 @@ namespace QueensWrath.Content.NPCs
 {
     public class QueenPiece : ModNPC
     {
-        // Aliases for NPC.ai[] state variables
-        public ref float State => ref NPC.ai[0];
-        public ref float Timer => ref NPC.ai[1];
-        public ref float SideDirection => ref NPC.ai[2];
+        public override string Texture => "QueensWrath/Content/NPCs/frame1";
 
-        // Movement Phase Enum matching Empress of Light's flight sequence
-        public enum AIState
+        // Animation frames
+        private static Asset<Texture2D> frame1Texture;
+        private static Asset<Texture2D> frame2Texture;
+        private float animTimer;
+
+        // Load textures
+        public override void Load()
         {
-            HoverAbove,     // Smooth hover to top-left / top-right of player
-            AlignDash,      // Horizontal line-up prior to dash
-            Dash,           // High-speed predictive dash past player
-            ArcSweep        // Wide sweeping curve around player
+            frame1Texture = ModContent.Request<Texture2D>("QueensWrath/Content/NPCs/frame1");
+            frame2Texture = ModContent.Request<Texture2D>("QueensWrath/Content/NPCs/queen_frame_2");
         }
 
+        // Unload textures
+        public override void Unload()
+        {
+            frame1Texture = null;
+            frame2Texture = null;
+        }
+
+        // Static defaults
         public override void SetStaticDefaults()
         {
-            // Register as a boss so it gets priority in the Bestiary
             NPCID.Sets.BossBestiaryPriority.Add(Type);
             NPCID.Sets.SpecificDebuffImmunity[Type][BuffID.Poisoned] = true;
             NPCID.Sets.SpecificDebuffImmunity[Type][BuffID.Confused] = true;
         }
 
+        // NPC defaults
         public override void SetDefaults()
         {
-            NPC.width = 84;
-            NPC.height = 200;
+            NPC.width = 110;
+            NPC.height = 208;
             NPC.damage = 200;
             NPC.defense = 50;
             NPC.lifeMax = 250000;
             NPC.value = 1000000f;
             NPC.knockBackResist = 0f;
-            NPC.boss = true;             // Enables the Boss Health Bar
-            NPC.aiStyle = -1;            // Custom AI logic (disables vanilla AI override)
+            NPC.boss = true;
             Music = MusicID.QueenSlime;
-            NPC.noGravity = true;        // Required for smooth floating flight
-            NPC.noTileCollide = true;    // Allows passing through terrain
-            NPC.netAlways = true;        // Syncs AI state accurately over multiplayer
-            NPC.HitSound = SoundID.NPCHit1;
-            NPC.DeathSound = SoundID.NPCDeath1;
+            NPC.aiStyle = -1;
+            NPC.noGravity = true;
+            NPC.noTileCollide = true;
+            NPC.netAlways = true;
         }
 
+        // Modify loot
         public override void ModifyNPCLoot(NPCLoot npcLoot)
         {
-            // Drop weapons item when the queen is defeated
             npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<BishopStaff>(), 1));
             npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<SiegeBastion>(), 1));
             npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<RookRectifier>(), 1));
             npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<NightOfKnightsItem>(), 1));
         }
 
+        // Flight AI
         public override void AI()
         {
-            // Acquire / validate target player
-            if (NPC.target < 0 || NPC.target == 255 || Main.player[NPC.target].dead || !Main.player[NPC.target].active)
+            animTimer += 0.035f;
+
+            if (NPC.target < 0 || NPC.target >= Main.maxPlayers || Main.player[NPC.target].dead || !Main.player[NPC.target].active)
             {
                 NPC.TargetClosest(true);
             }
 
             Player target = Main.player[NPC.target];
-
-            // Float upward and despawn if player dies or leaves world
-            if (!target.active || target.dead)
+            if (target.dead || !target.active)
             {
-                NPC.velocity.Y -= 0.05f;
+                NPC.velocity.Y -= 0.35f;
                 NPC.EncourageDespawn(10);
                 return;
             }
 
-            // Face the direction of the player
-            NPC.spriteDirection = NPC.direction = target.Center.X > NPC.Center.X ? 1 : -1;
+            Vector2 targetPos = target.Center + new Vector2(0f, -240f);
+            Vector2 toTarget = targetPos - NPC.Center;
+            float distance = toTarget.Length();
 
-            // Initialize side direction multiplier on first tick
-            if (SideDirection == 0f) 
-                SideDirection = 1f;
+            const float maxSpeed = 8.5f;
+            const float inertia = 24f;
 
-            Timer++;
-
-            switch ((AIState)State)
+            if (distance > 20f)
             {
-                case AIState.HoverAbove:
-                    // Smooth hover ~260px above and 250px offset to the player's side
-                    Vector2 hoverTarget = target.Center + new Vector2(250f * SideDirection, -260f);
-                    SmoothMoveTo(hoverTarget, maxSpeed: 18f, inertia: 14f);
-
-                    if (Timer >= 180) // 3 seconds hover duration
-                    {
-                        Timer = 0;
-                        State = (float)AIState.AlignDash;
-                    }
-                    break;
-
-                case AIState.AlignDash:
-                    // Rapidly realign horizontally to player height prior to dash
-                    float side = (NPC.Center.X < target.Center.X) ? -1f : 1f;
-                    Vector2 prepPos = target.Center + new Vector2(side * 450f, -20f);
-                    
-                    SmoothMoveTo(prepPos, maxSpeed: 28f, inertia: 8f);
-
-                    if (Timer >= 40) // 0.66 second telegraph alignment
-                    {
-                        Timer = 0;
-                        // Predict future player position based on movement vector
-                        Vector2 predictedTarget = target.Center + (target.velocity * 12f);
-                        Vector2 dashDir = (predictedTarget - NPC.Center).SafeNormalize(Vector2.UnitX);
-                        
-                        // Execute high-speed dash burst
-                        NPC.velocity = dashDir * 34f;
-                        State = (float)AIState.Dash;
-                    }
-                    break;
-
-                case AIState.Dash:
-                    // Apply EoL exponential friction to slow down post-dash
-                    NPC.velocity *= 0.95f;
-
-                    if (Timer >= 35) 
-                    {
-                        Timer = 0;
-                        SideDirection *= -1f; // Alternate side for next flight phase
-                        State = (float)AIState.ArcSweep;
-                    }
-                    break;
-
-                case AIState.ArcSweep:
-                    // Sweeping arc motion over the player
-                    float progress = Timer / 120f; // 2 second arc duration
-                    float angle = MathHelper.Pi * progress;
-                    
-                    Vector2 arcOffset = new Vector2(
-                        (float)Math.Cos(angle) * 350f * -SideDirection,
-                        -(float)Math.Sin(angle) * 200f - 100f
-                    );
-
-                    Vector2 arcTarget = target.Center + arcOffset;
-                    SmoothMoveTo(arcTarget, maxSpeed: 22f, inertia: 10f);
-
-                    if (Timer >= 120)
-                    {
-                        Timer = 0;
-                        State = (float)AIState.HoverAbove;
-                    }
-                    break;
+                toTarget *= maxSpeed / distance;
+                NPC.velocity = (NPC.velocity * (inertia - 1f) + toTarget) / inertia;
             }
+
+            NPC.rotation = NPC.velocity.X * 0.015f;
+            NPC.spriteDirection = target.Center.X >= NPC.Center.X ? 1 : -1;
         }
 
-        /// <summary>
-        /// Exponential acceleration calculation mimicking Empress of Light movement.
-        /// </summary>
-        private void SmoothMoveTo(Vector2 targetPos, float maxSpeed, float inertia)
+        // Draw NPC
+        public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
-            Vector2 desiredVelocity = targetPos - NPC.Center;
-            float distance = desiredVelocity.Length();
-
-            if (distance > 0f)
+            if (frame1Texture == null || !frame1Texture.IsLoaded || frame2Texture == null || !frame2Texture.IsLoaded)
             {
-                desiredVelocity.Normalize();
-                float speed = Math.Min(distance * 0.12f, maxSpeed);
-                NPC.velocity = (NPC.velocity * (inertia - 1f) + desiredVelocity * speed) / inertia;
+                return false;
             }
+
+            // Alternate frames
+            bool useFrame2 = (Main.GameUpdateCount / 12) % 2 == 1;
+            Texture2D tex = useFrame2 ? frame2Texture.Value : frame1Texture.Value;
+
+            bool isFacingRight = NPC.spriteDirection == 1;
+            SpriteEffects effects = isFacingRight ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+
+            Vector2 origin = new Vector2(tex.Width * 0.5f, tex.Height * 0.5f);
+            Vector2 drawCenter = NPC.Center - screenPos;
+
+            float bob = MathF.Sin(animTimer * 2f) * 3f;
+            Vector2 bobOffset = new Vector2(0f, bob);
+            float sway = MathF.Sin(animTimer * 1.8f) * 0.04f;
+            float rot = NPC.rotation + (isFacingRight ? sway : -sway);
+
+            // Texture scale
+            float drawScale = NPC.scale * (208f / tex.Height);
+
+            spriteBatch.Draw(tex, drawCenter + bobOffset, null, drawColor, rot, origin, drawScale, effects, 0f);
+            return false;
         }
     }
 }
