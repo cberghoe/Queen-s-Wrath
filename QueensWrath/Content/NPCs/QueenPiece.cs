@@ -1,8 +1,8 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using ReLogic.Content;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -12,26 +12,9 @@ namespace QueensWrath.Content.NPCs
 {
     public class QueenPiece : ModNPC
     {
-        public override string Texture => "QueensWrath/Content/NPCs/frame1";
+        public override string Texture => "QueensWrath/Content/NPCs/QueenPiece";
 
-        // Animation frames
-        private static Asset<Texture2D> frame1Texture;
-        private static Asset<Texture2D> frame2Texture;
         private float animTimer;
-
-        // Load textures
-        public override void Load()
-        {
-            frame1Texture = ModContent.Request<Texture2D>("QueensWrath/Content/NPCs/frame1");
-            frame2Texture = ModContent.Request<Texture2D>("QueensWrath/Content/NPCs/queen_frame_2");
-        }
-
-        // Unload textures
-        public override void Unload()
-        {
-            frame1Texture = null;
-            frame2Texture = null;
-        }
 
         // Static defaults
         public override void SetStaticDefaults()
@@ -39,6 +22,8 @@ namespace QueensWrath.Content.NPCs
             NPCID.Sets.BossBestiaryPriority.Add(Type);
             NPCID.Sets.SpecificDebuffImmunity[Type][BuffID.Poisoned] = true;
             NPCID.Sets.SpecificDebuffImmunity[Type][BuffID.Confused] = true;
+            NPCID.Sets.TrailCacheLength[Type] = 6;
+            NPCID.Sets.TrailingMode[Type] = 0;
         }
 
         // NPC defaults
@@ -101,35 +86,63 @@ namespace QueensWrath.Content.NPCs
 
             NPC.rotation = NPC.velocity.X * 0.015f;
             NPC.spriteDirection = target.Center.X >= NPC.Center.X ? 1 : -1;
+
+            // Ambient monochromatic chess particles
+            if (Main.rand.NextBool(4))
+            {
+                Vector2 dustPos = NPC.position + new Vector2(Main.rand.NextFloat(NPC.width), Main.rand.NextFloat(NPC.height));
+                Dust d = Dust.NewDustPerfect(dustPos, DustID.Smoke, new Vector2(0f, -0.6f), 120, Color.White, 0.85f);
+                d.noGravity = true;
+            }
         }
 
-        // Draw NPC
+        // Draw NPC with procedural animation (black & white chess aesthetic: silver aura, shadow/light ghost trails, squash & stretch)
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
-            if (frame1Texture == null || !frame1Texture.IsLoaded || frame2Texture == null || !frame2Texture.IsLoaded)
+            Texture2D tex = TextureAssets.Npc[Type].Value;
+            if (tex == null)
             {
                 return false;
             }
 
-            // Alternate frames
-            bool useFrame2 = (Main.GameUpdateCount / 12) % 2 == 1;
-            Texture2D tex = useFrame2 ? frame2Texture.Value : frame1Texture.Value;
-
             bool isFacingRight = NPC.spriteDirection == 1;
             SpriteEffects effects = isFacingRight ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
-
             Vector2 origin = new Vector2(tex.Width * 0.5f, tex.Height * 0.5f);
-            Vector2 drawCenter = NPC.Center - screenPos;
 
-            float bob = MathF.Sin(animTimer * 2f) * 3f;
-            Vector2 bobOffset = new Vector2(0f, bob);
-            float sway = MathF.Sin(animTimer * 1.8f) * 0.04f;
-            float rot = NPC.rotation + (isFacingRight ? sway : -sway);
+            // 1. Organic figure-8 floating motion
+            float floatX = MathF.Sin(animTimer * 1.4f) * 6f;
+            float floatY = MathF.Cos(animTimer * 2.8f) * 9f;
+            Vector2 drawCenter = NPC.Center - screenPos + new Vector2(floatX, floatY);
 
-            // Texture scale
-            float drawScale = NPC.scale * (208f / tex.Height);
+            // 2. Breathing / Squash & Stretch
+            float breathe = MathF.Sin(animTimer * 2.2f);
+            float baseScale = NPC.scale * (208f / tex.Height);
+            Vector2 scaleVec = new Vector2(1f - breathe * 0.035f, 1f + breathe * 0.035f) * baseScale;
 
-            spriteBatch.Draw(tex, drawCenter + bobOffset, null, drawColor, rot, origin, drawScale, effects, 0f);
+            // 3. Inertial tilt and gentle sway
+            float tilt = MathHelper.Clamp(NPC.velocity.X * 0.02f, -0.15f, 0.15f);
+            float sway = MathF.Sin(animTimer * 1.8f) * 0.03f;
+            float rot = NPC.rotation + tilt + (isFacingRight ? sway : -sway);
+
+            // 4. Subtle monochromatic motion shadow trails when moving
+            if (NPC.velocity.LengthSquared() > 0.8f)
+            {
+                for (int i = NPC.oldPos.Length - 1; i > 0; i--)
+                {
+                    if (NPC.oldPos[i] == Vector2.Zero) continue;
+                    float factor = (float)(NPC.oldPos.Length - i) / NPC.oldPos.Length;
+                    Vector2 oldDrawPos = NPC.oldPos[i] + new Vector2(NPC.width * 0.5f, NPC.height * 0.5f) - screenPos + new Vector2(floatX, floatY);
+
+                    // Smooth subtle dark shadow trail
+                    Color shadowColor = (drawColor * 0.4f) * (factor * 0.35f);
+                    shadowColor.A = (byte)(180 * factor * 0.35f);
+                    spriteBatch.Draw(tex, oldDrawPos, null, shadowColor, rot, origin, scaleVec, effects, 0f);
+                }
+            }
+
+            // 5. Draw main queen sprite solidly and cleanly
+            spriteBatch.Draw(tex, drawCenter, null, drawColor, rot, origin, scaleVec, effects, 0f);
+
             return false;
         }
     }
