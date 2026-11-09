@@ -5,6 +5,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using QueensWrath.Content.Items;
 
+
 namespace QueensWrath.Content.NPCs
 {
     public class KingPiece : ModNPC
@@ -57,5 +58,16 @@ namespace QueensWrath.Content.NPCs
 
             base.AI();
         }
+
+        public override void OnKill()
+		{
+			if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                int closestPlayer = Player.FindClosest(NPC.position, NPC.width, NPC.height);
+                
+                NPC.SpawnOnPlayer(closestPlayer, ModContent.NPCType<QueenPiece>());
+            }
+		}
+        
     }
 }
