@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("QueensWrath")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fb5f5c9381bef6897808ac80d4ca1cb20906bfe4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+33c6d5a267c4aede039e83bbac3dc3775ba6900c")]
 [assembly: System.Reflection.AssemblyProductAttribute("QueensWrath")]
 [assembly: System.Reflection.AssemblyTitleAttribute("QueensWrath")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

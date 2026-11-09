@@ -1,3 +1,5 @@
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="C:\Program Files (x86)\Steam\steamapps\common\tModLoader\tMLMod.targets" />
+  <Import Project="D:\SteamLibrary\steamapps\common\tModLoader\tMLMod.targets" Condition="Exists('D:\SteamLibrary\steamapps\common\tModLoader\tMLMod.targets')" />
+  <Import Project="C:\Program Files (x86)\Steam\steamapps\common\tModLoader\tMLMod.targets" Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\tModLoader\tMLMod.targets')" />
+  <Import Project="$(tMLPath)\tMLMod.targets" Condition="'$(tMLPath)' != '' and Exists('$(tMLPath)\tMLMod.targets')" />
 </Project>

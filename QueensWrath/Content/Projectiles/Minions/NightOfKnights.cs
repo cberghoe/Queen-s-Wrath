@@ -21,8 +21,6 @@ namespace QueensWrath.Content.Projectiles.Minions
         private ref float DirY => ref Projectile.localAI[1];
         private ref float IsHorizontalFirst => ref Projectile.localAI[2];
 
-        // Store the angle of the current dash so it can be offset for the next one
-        private float dashAngle = 0f;
 
         private static Asset<Texture2D> whiteTexture;
         private static Asset<Texture2D> blackTexture;
