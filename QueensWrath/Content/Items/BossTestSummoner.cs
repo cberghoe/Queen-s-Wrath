@@ -1,3 +1,4 @@
+using System;
 using QueensWrath.Content.NPCs;
 using Terraria;
 using Terraria.Audio;
@@ -31,9 +32,20 @@ namespace QueensWrath.Content.Items
 			{
 				SoundEngine.PlaySound(SoundID.Roar with { Volume = 0.7f, Pitch = 0.2f }, player.position);
 
+				int dir = player.direction != 0 ? player.direction : 1;
+				float spawnX = player.Center.X + dir * 140f;
+				int tileX = Math.Clamp((int)(spawnX / 16f), 10, Main.maxTilesX - 10);
+				int tileY = Math.Clamp((int)(player.Bottom.Y / 16f), 10, Main.maxTilesY - 10);
+
+				while (tileY < Main.maxTilesY - 10 && (!Main.tile[tileX, tileY].HasTile || !Main.tileSolid[Main.tile[tileX, tileY].TileType] || Main.tile[tileX, tileY].IsActuated))
+				{
+					tileY++;
+				}
+				float spawnY = tileY * 16f - 96f;
+
 				if (Main.netMode != NetmodeID.MultiplayerClient)
 				{
-					NPC.NewNPC(player.GetSource_ItemUse(Item), (int)player.Center.X + player.direction * 60, (int)player.Center.Y, ModContent.NPCType<KingPiece>());
+					NPC.NewNPC(player.GetSource_ItemUse(Item), (int)spawnX, (int)spawnY, ModContent.NPCType<KingPiece>());
 				}
 				else
 				{
