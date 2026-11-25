@@ -10,6 +10,8 @@ using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.ModLoader;
 using QueensWrath.Content.Items;
+using QueensWrath.Content.Projectiles;
+using System.IO;
 
 namespace QueensWrath.Content.NPCs
 {
@@ -49,6 +51,7 @@ namespace QueensWrath.Content.NPCs
 		private float stateTimer;
 		private bool isPhase2;
 		private bool hasTriggeredPhase2;
+		private int hiddenOrbitPawns;
 		private BossState currentState = BossState.Intro;
 
 		public bool IsInvulnerable => currentState == BossState.Intro || currentState == BossState.Phase2Transition;
@@ -178,8 +181,58 @@ namespace QueensWrath.Content.NPCs
 			int tileY = Math.Clamp((int)(NPC.Bottom.Y / 16f), 10, Main.maxTilesY - 10);
 			while (tileY < Main.maxTilesY - 10 && (!Main.tile[tileX, tileY].HasTile || !Main.tileSolid[Main.tile[tileX, tileY].TileType] || Main.tile[tileX, tileY].IsActuated))
 				tileY++;
-
 			NPC.Bottom = new Vector2(NPC.Center.X, tileY * 16f);
+		}
+
+		private void ThrowPawnPieces(Player target)
+		{
+			if (Main.netMode == NetmodeID.MultiplayerClient)
+				return;
+			if (hiddenOrbitPawns != 0)
+				return;
+
+			int projectileType = ModContent.ProjectileType<KingThrownPawn>();
+			int pawnCount = isPhase2 ? PawnCount : 3;
+			int[] availablePawns = new int[PawnCount];
+			int availableCount = 0;
+			for (int i = 0; i < PawnCount; i++)
+			{
+				if ((hiddenOrbitPawns & (1 << i)) == 0)
+					availablePawns[availableCount++] = i;
+			}
+
+			for (int i = availableCount - 1; i > 0; i--)
+			{
+				int swapIndex = Main.rand.Next(i + 1);
+				(availablePawns[i], availablePawns[swapIndex]) = (availablePawns[swapIndex], availablePawns[i]);
+			}
+
+			for (int i = 0; i < Math.Min(pawnCount, availableCount); i++)
+			{
+				int pawnIndex = availablePawns[i];
+				Vector2 direction = Main.rand.NextVector2CircularEdge(1f, 1f);
+				if (direction.LengthSquared() < 0.01f)
+					direction = Vector2.UnitX.RotatedByRandom(MathHelper.TwoPi);
+
+				Vector2 velocity = direction * Main.rand.NextFloat(8.5f, 11f);
+
+				int projectileIndex = Projectile.NewProjectile(
+					NPC.GetSource_FromAI(),
+					NPC.Center,
+					velocity,
+					projectileType,
+					(int)(NPC.damage * 0.6f),
+					2f,
+					-1,
+					target.whoAmI,
+					Main.rand.NextFloat(-0.02f, 0.02f),
+					pawnIndex * 1000f + NPC.whoAmI);
+
+				if (projectileIndex >= 0 && projectileIndex < Main.maxProjectiles && Main.projectile[projectileIndex].active)
+					hiddenOrbitPawns |= 1 << pawnIndex;
+			}
+
+			NPC.netUpdate = true;
 		}
 
 		// Trigger Phase 2
@@ -188,6 +241,7 @@ namespace QueensWrath.Content.NPCs
 			if (hasTriggeredPhase2) return;
 
 			hasTriggeredPhase2 = true;
+			hiddenOrbitPawns = 0;
 			currentState = BossState.Phase2Transition;
 			phase2Timer = 0f;
 			stateTimer = 0f;
@@ -209,6 +263,25 @@ namespace QueensWrath.Content.NPCs
 					d.noGravity = Main.rand.NextBool();
 				}
 			}
+		}
+
+		public void RestoreOrbitPawn(int pawnIndex)
+		{
+			if (pawnIndex < 0 || pawnIndex >= PawnCount)
+				return;
+
+			hiddenOrbitPawns &= ~(1 << pawnIndex);
+			NPC.netUpdate = true;
+		}
+
+		public override void SendExtraAI(BinaryWriter writer)
+		{
+			writer.Write(hiddenOrbitPawns);
+		}
+
+		public override void ReceiveExtraAI(BinaryReader reader)
+		{
+			hiddenOrbitPawns = reader.ReadInt32();
 		}
 
 		// AI update
@@ -346,6 +419,9 @@ namespace QueensWrath.Content.NPCs
 			Span<Vector2> pawnCenters = stackalloc Vector2[PawnCount];
 			for (int i = 0; i < PawnCount; i++)
 			{
+				if ((hiddenOrbitPawns & (1 << i)) != 0)
+					continue;
+
 				float baseAngle = orbitTimer + i * AngleStep;
 				float rx = MathF.Cos(baseAngle) * dynRadiusX;
 				float ry = MathF.Sin(baseAngle) * dynRadiusY;
@@ -362,6 +438,9 @@ namespace QueensWrath.Content.NPCs
 
 				for (int i = 0; i < PawnCount; i++)
 				{
+					if ((hiddenOrbitPawns & (1 << i)) != 0)
+						continue;
+
 					if (player.Hitbox.Intersects(Utils.CenteredRectangle(pawnCenters[i], new Vector2(28f, 28f))))
 					{
 						player.Hurt(PlayerDeathReason.ByNPC(NPC.whoAmI), NPC.damage / 2, player.Center.X >= pawnCenters[i].X ? 1 : -1);
@@ -382,6 +461,9 @@ namespace QueensWrath.Content.NPCs
 
 				for (int i = 0; i < PawnCount; i++)
 				{
+					if ((hiddenOrbitPawns & (1 << i)) != 0)
+						continue;
+
 					if (Vector2.DistanceSquared(proj.Center, pawnCenters[i]) < 576f)
 					{
 						proj.Kill();
@@ -422,6 +504,9 @@ namespace QueensWrath.Content.NPCs
 						NPC.velocity *= 0.92f;
 
 					NPC.rotation = NPC.velocity.X * 0.015f;
+
+					if (stateTimer == 50f)
+						ThrowPawnPieces(target);
 
 					if (stateTimer >= (isPhase2 ? 130 : 180))
 					{
@@ -662,6 +747,9 @@ namespace QueensWrath.Content.NPCs
 
 			for (int i = 0; i < PawnCount; i++)
 			{
+				if ((hiddenOrbitPawns & (1 << i)) != 0)
+					continue;
+
 				float baseAngle = orbitTimer + i * AngleStep;
 
 				// Trail segments

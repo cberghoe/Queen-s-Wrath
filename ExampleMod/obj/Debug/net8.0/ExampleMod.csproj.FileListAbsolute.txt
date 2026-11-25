@@ -1,0 +1,6 @@
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\ExampleMod\obj\Debug\net8.0\ExampleMod.csproj.AssemblyReference.cache
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\ExampleMod\obj\Debug\net8.0\ExampleMod.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\ExampleMod\obj\Debug\net8.0\ExampleMod.AssemblyInfoInputs.cache
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\ExampleMod\obj\Debug\net8.0\ExampleMod.AssemblyInfo.cs
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\ExampleMod\obj\Debug\net8.0\ExampleMod.csproj.CoreCompileInputs.cache
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\ExampleMod\obj\Debug\net8.0\ExampleMod.sourcelink.json

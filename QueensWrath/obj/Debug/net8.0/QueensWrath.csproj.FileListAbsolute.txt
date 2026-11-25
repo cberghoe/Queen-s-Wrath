@@ -11,3 +11,16 @@ D:\git\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.dll
 D:\git\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\refint\QueensWrath.dll
 D:\git\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.pdb
 D:\git\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\ref\QueensWrath.dll
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.csproj.AssemblyReference.cache
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.AssemblyInfoInputs.cache
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.AssemblyInfo.cs
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.csproj.CoreCompileInputs.cache
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.sourcelink.json
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.dll
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\refint\QueensWrath.dll
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\QueensWrath.pdb
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\bin\Debug\net8.0\QueensWrath.deps.json
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\bin\Debug\net8.0\QueensWrath.dll
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\bin\Debug\net8.0\QueensWrath.pdb
+C:\Users\Mark\Documents\GitHub\Queen-s-Wrath\QueensWrath\obj\Debug\net8.0\ref\QueensWrath.dll
