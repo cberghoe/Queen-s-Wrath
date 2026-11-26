@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using Terraria;
 using Terraria.Audio;
+using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
@@ -33,6 +34,7 @@ namespace QueensWrath.Content.NPCs
         public const int SpinDurationTicks = 90;
         public const int AscendDurationTicks = 50;
         public const int DefaultAttackDurationTicks = 180;
+        public const int QueenAttackDurationTicks = 520;
         public const int ReturnDurationTicks = 35;
 
         private static readonly ChessPieceType[] HaloPieceSlots =
@@ -40,6 +42,40 @@ namespace QueensWrath.Content.NPCs
             ChessPieceType.Bishop, ChessPieceType.Knight, ChessPieceType.Queen, ChessPieceType.Rook,
             ChessPieceType.Bishop, ChessPieceType.Knight, ChessPieceType.Queen, ChessPieceType.Rook
         };
+
+        // Knight attack state
+        private static readonly Vector2[] KnightOffsets =
+        {
+            new Vector2( 2f,  1f), new Vector2( 2f, -1f),
+            new Vector2(-2f,  1f), new Vector2(-2f, -1f),
+            new Vector2( 1f,  2f), new Vector2( 1f, -2f),
+            new Vector2(-1f,  2f), new Vector2(-1f, -2f)
+        };
+
+        private int knightStep;
+        private int knightStepTimer;
+        private Vector2 knightAnchorPos;
+        private Vector2 knightCornerPos;
+        private Vector2 knightEndPos;
+
+       // Queen asterisk attack state
+        private const int AsteriskTrailLength = 16;
+
+        private struct AsteriskPiece
+        {
+            public bool IsBishop;
+            public Vector2 Direction;
+            public float Length;
+            public Vector2 CurrentPos;
+            public Vector2 EndPos;
+            public Vector2[] Trail;
+            public int TrailCount;
+        }
+
+        private AsteriskPiece[] queenAsteriskPieces;
+        private Vector2 queenAttackCenter;
+        private int queenBeamHitCooldown;
+
 
         // Textures
         private static Asset<Texture2D> texBishop;
@@ -173,6 +209,18 @@ namespace QueensWrath.Content.NPCs
         // Movement update
         private void UpdateMovement(Player target)
         {
+            bool isKnightDashing = CurrentState == QueenAttackState.PieceAttacking &&
+                                   SelectedPiece == ChessPieceType.Knight;
+
+            if (isKnightDashing)
+            {
+                NPC.spriteDirection = NPC.velocity.X != 0f
+                    ? Math.Sign(NPC.velocity.X)
+                    : (target.Center.X >= NPC.Center.X ? 1 : -1);
+                NPC.rotation = NPC.velocity.X * 0.015f;
+                return;
+            }
+
             float hoverOffsetY = CurrentState switch
             {
                 QueenAttackState.SpinningWheel => -200f,
@@ -215,6 +263,10 @@ namespace QueensWrath.Content.NPCs
                 haloOrbitTimer += 0.025f;
             }
         }
+
+        private int GetCurrentAttackDuration() => SelectedPiece == ChessPieceType.Queen
+            ? QueenAttackDurationTicks
+            : DefaultAttackDurationTicks;
 
         // State machine
         private void UpdateAttackStateMachine(Player target)
@@ -266,7 +318,7 @@ namespace QueensWrath.Content.NPCs
                 case QueenAttackState.PieceAttacking:
                     AttackTimer++;
                     UpdatePieceAttack(target);
-                    if (AttackTimer >= DefaultAttackDurationTicks)
+                    if (AttackTimer >= GetCurrentAttackDuration())
                         EndPieceAttack();
                     break;
 
@@ -315,6 +367,11 @@ namespace QueensWrath.Content.NPCs
         // End attack
         public void EndPieceAttack()
         {
+            knightStep = 0;
+            knightStepTimer = 0;
+            queenAsteriskPieces = null;
+            queenBeamHitCooldown = 0;
+
             if (CurrentState == QueenAttackState.PieceAttacking)
             {
                 CurrentState = QueenAttackState.PieceReturning;
@@ -345,6 +402,110 @@ namespace QueensWrath.Content.NPCs
         // Knight attack
         public virtual void ExecuteKnightAttack(Player target)
         {
+            const float stepSize = 260f;
+            const int telegraphTicks = 20;
+            const int leg1Ticks = 28;
+            const int leg2Ticks = 20;
+            const int recoveryTicks = 12;
+            const float leg1Speed = 24f;
+            const float leg2Speed = 24f;
+
+            if (AttackTimer == 1)
+            {
+                knightStep = 0;
+                knightStepTimer = 0;
+            }
+
+            switch (knightStep)
+            {
+                case 0:
+                    if (knightStepTimer == 0)
+                    {
+                        knightAnchorPos = target.Center;
+                        knightEndPos = knightAnchorPos;
+
+                        Vector2 chosenOffset = KnightOffsets[Main.rand.Next(KnightOffsets.Length)];
+                        Vector2 startPos = knightAnchorPos + chosenOffset * stepSize;
+
+                        bool xIsLongLeg = MathF.Abs(chosenOffset.X) > MathF.Abs(chosenOffset.Y);
+                        knightCornerPos = xIsLongLeg
+                            ? new Vector2(knightAnchorPos.X, startPos.Y)
+                            : new Vector2(startPos.X, knightAnchorPos.Y);
+
+                        NPC.Center = startPos;
+                        NPC.velocity = Vector2.Zero;
+                        NPC.netUpdate = true;
+                    }
+
+                    knightStepTimer++;
+                    if (knightStepTimer >= telegraphTicks)
+                    {
+                        knightStep = 1;
+                        knightStepTimer = 0;
+                    }
+                    break;
+
+                case 1:
+                    {
+                        Vector2 toCorner = knightCornerPos - NPC.Center;
+                        if (toCorner.Length() <= leg1Speed)
+                        {
+                            NPC.Center = knightCornerPos;
+                            NPC.velocity = Vector2.Zero;
+                            knightStep = 2;
+                            knightStepTimer = 0;
+                            break;
+                        }
+
+                        NPC.velocity = NPC.Center.DirectionTo(knightCornerPos) * leg1Speed;
+
+                        knightStepTimer++;
+                        if (knightStepTimer >= leg1Ticks)
+                        {
+                            knightStep = 2;
+                            knightStepTimer = 0;
+                        }
+                    }
+                    break;
+
+                case 2:
+                    {
+                        Vector2 toEnd = knightEndPos - NPC.Center;
+                        if (toEnd.Length() <= leg2Speed)
+                        {
+                            NPC.Center = knightEndPos;
+                            NPC.velocity = Vector2.Zero;
+                            knightStep = 3;
+                            knightStepTimer = 0;
+                            break;
+                        }
+
+                        NPC.velocity = NPC.Center.DirectionTo(knightEndPos) * leg2Speed;
+
+                        knightStepTimer++;
+                        if (knightStepTimer >= leg2Ticks)
+                        {
+                            knightStep = 3;
+                            knightStepTimer = 0;
+                        }
+                    }
+                    break;
+
+                case 3:
+                    NPC.velocity *= 0.82f;
+                    knightStepTimer++;
+
+                    if (knightStepTimer >= recoveryTicks)
+                    {
+                        knightStep = 0;
+                        knightStepTimer = 0;
+
+                        if (AttackTimer >= 110)
+                            EndPieceAttack();
+                    }
+                    break;
+            }
+
             if (AttackTimer >= 150)
                 EndPieceAttack();
         }
@@ -352,8 +513,120 @@ namespace QueensWrath.Content.NPCs
         // Queen attack
         public virtual void ExecuteQueenAttack(Player target)
         {
-            if (AttackTimer >= 160)
+            const float laneLength = 1250f;
+            const float cycleSpeed = 0.095f;
+            const float trailHitboxWidth = 26f;
+
+            if (queenBeamHitCooldown > 0)
+                queenBeamHitCooldown--;
+
+            if (AttackTimer == 1)
+            {
+                queenAttackCenter = target.Center;
+                queenAsteriskPieces = new AsteriskPiece[8];
+
+                for (int i = 0; i < 8; i++)
+                {
+                    float angle = i * MathHelper.PiOver4;
+                    bool isDiagonal = (i % 2) == 1;
+                    Vector2 dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+
+                    Vector2[] trail = new Vector2[AsteriskTrailLength];
+                    trail[0] = queenAttackCenter;
+
+                    queenAsteriskPieces[i] = new AsteriskPiece
+                    {
+                        IsBishop = isDiagonal,
+                        Direction = dir,
+                        Length = laneLength,
+                        CurrentPos = queenAttackCenter,
+                        EndPos = queenAttackCenter + dir * laneLength,
+                        Trail = trail,
+                        TrailCount = 1
+                    };
+                }
+            }
+
+            if (queenAsteriskPieces != null)
+            {
+                float pingPong = 0.5f - 0.5f * MathF.Cos(AttackTimer * cycleSpeed * MathF.PI);
+
+                for (int i = 0; i < queenAsteriskPieces.Length; i++)
+                {
+                    AsteriskPiece piece = queenAsteriskPieces[i];
+                    piece.EndPos = queenAttackCenter + piece.Direction * piece.Length;
+                    piece.CurrentPos = Vector2.Lerp(queenAttackCenter, piece.EndPos, pingPong);
+
+                    if (piece.Trail == null)
+                    {
+                        piece.Trail = new Vector2[AsteriskTrailLength];
+                        piece.TrailCount = 0;
+                    }
+
+                    int nextCount = Math.Min(piece.TrailCount + 1, AsteriskTrailLength);
+                    for (int t = nextCount - 1; t > 0; t--)
+                        piece.Trail[t] = piece.Trail[t - 1];
+
+                    piece.Trail[0] = piece.CurrentPos;
+                    piece.TrailCount = nextCount;
+
+                    queenAsteriskPieces[i] = piece;
+
+                    for (int t = 0; t < piece.TrailCount - 1; t++)
+                    {
+                        float progress = 1f - (float)t / (piece.TrailCount - 1);
+                        float segmentStrength = MathHelper.Lerp(0.35f, 1f, progress);
+                        float scaledWidth = MathHelper.Lerp(trailHitboxWidth * 0.45f, trailHitboxWidth, progress);
+
+                        CheckQueenBeamCollision(target, piece.Trail[t], piece.Trail[t + 1], scaledWidth, segmentStrength);
+                        if (queenBeamHitCooldown > 0)
+                            break;
+                    }
+                }
+            }
+
+            if (AttackTimer >= QueenAttackDurationTicks)
                 EndPieceAttack();
+        }
+
+        private void CheckQueenBeamCollision(Player target, Vector2 beamStart, Vector2 beamEnd, float beamWidth, float damageScale = 1f)
+        {
+            if (queenBeamHitCooldown > 0 || target.dead || !target.active)
+                return;
+
+            // Skip tiny/degenerate segments
+            if (Vector2.DistanceSquared(beamStart, beamEnd) < 1f)
+                return;
+
+            float collisionPoint = 0f;
+            bool hit = Collision.CheckAABBvLineCollision(
+                target.Hitbox.TopLeft(),
+                target.Hitbox.Size(),
+                beamStart,
+                beamEnd,
+                beamWidth,
+                ref collisionPoint
+            );
+
+            if (!hit)
+                return;
+
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                int hitDirection = target.Center.X >= beamStart.X ? 1 : -1;
+                int baseDamage = NPC.damage / 2;
+                int finalDamage = Math.Max(1, (int)(baseDamage * damageScale));
+
+                target.Hurt(
+                    PlayerDeathReason.ByNPC(NPC.whoAmI),
+                    finalDamage,
+                    hitDirection,
+                    pvp: false,
+                    quiet: false
+                );
+            }
+
+            queenBeamHitCooldown = 14;
         }
 
         // Rook attack
@@ -463,7 +736,78 @@ namespace QueensWrath.Content.NPCs
             // Elevated piece
             DrawElevatedActivePiece(spriteBatch, screenPos, drawColor);
 
+            // Queen asterisk beams & pieces
+            if (CurrentState == QueenAttackState.PieceAttacking && SelectedPiece == ChessPieceType.Queen)
+                DrawQueenAsteriskAttack(spriteBatch, screenPos, drawColor);
+
             return false;
+        }
+
+        private void DrawQueenAsteriskAttack(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
+        {
+            if (queenAsteriskPieces == null)
+                return;
+
+            Texture2D trailTex = glowTexture?.Value;
+
+            if (trailTex != null)
+            {
+                spriteBatch.End();
+                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.GameViewMatrix.TransformationMatrix);
+
+                Vector2 origin = new Vector2(0f, trailTex.Height * 0.5f);
+
+                for (int i = 0; i < queenAsteriskPieces.Length; i++)
+                {
+                    AsteriskPiece piece = queenAsteriskPieces[i];
+                    if (piece.Trail == null || piece.TrailCount <= 1)
+                        continue;
+
+                    Color baseTint = piece.IsBishop
+                        ? new Color(220, 120, 255)
+                        : new Color(110, 220, 255);
+
+                    for (int t = 0; t < piece.TrailCount - 1; t++)
+                    {
+                        float progress = 1f - (float)t / (piece.TrailCount - 1);
+                        Vector2 p1 = piece.Trail[t] - screenPos;
+                        Vector2 p2 = piece.Trail[t + 1] - screenPos;
+                        Vector2 seg = p2 - p1;
+                        float segLen = seg.Length();
+
+                        if (segLen <= 0.5f)
+                            continue;
+
+                        float angle = seg.ToRotation();
+                        Vector2 dir = seg / segLen;
+                        Vector2 drawStart = p1 - dir * 8f; // Slight overlap into the previous segment
+                        float scaleX = (segLen + 16f) / trailTex.Width;
+                        float scaleY = MathHelper.Lerp(0.28f, 0.85f, progress);
+                        Color segColor = baseTint * (progress * 0.85f);
+
+                        spriteBatch.Draw(trailTex, drawStart, null, segColor, angle, origin, new Vector2(scaleX, scaleY), SpriteEffects.None, 0f);
+                    }
+                }
+
+                spriteBatch.End();
+                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.GameViewMatrix.TransformationMatrix);
+            }
+
+            for (int i = 0; i < queenAsteriskPieces.Length; i++)
+            {
+                AsteriskPiece piece = queenAsteriskPieces[i];
+                ChessPieceType pieceType = piece.IsBishop ? ChessPieceType.Bishop : ChessPieceType.Rook;
+                Texture2D pieceTex = GetPieceTexture(pieceType);
+                if (pieceTex == null)
+                    continue;
+
+                Vector2 drawPos = piece.CurrentPos - screenPos;
+                Vector2 pieceOrigin = new Vector2(pieceTex.Width * 0.5f, pieceTex.Height * 0.5f);
+                float scale = HaloPieceHeight / pieceTex.Height;
+                float rot = MathF.Sin(animTimer * 2f + i) * 0.08f;
+
+                spriteBatch.Draw(pieceTex, drawPos, null, drawColor, rot, pieceOrigin, scale, SpriteEffects.None, 0f);
+            }
         }
 
         // Halo drawing
